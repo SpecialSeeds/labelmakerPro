@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: firebase deploy to Pages
 
 on:
   push:
@@ -25,35 +25,24 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Inject Firebase Config
-        env:
-          CONFIG: ${{ secrets.FIREBASE_CONFIG }}
         run: |
-          echo "injecting firebase config..."
-          
-          # write config to temp file
-          echo "$CONFIG" > config.json
-          
-          # use node to do the replacement
-          node << 'SCRIPT'
+          cat > inject.js << 'EOF'
           const fs = require('fs');
-          const config = JSON.parse(fs.readFileSync('config.json', 'utf8'));
+          const config = JSON.parse(process.env.FIREBASE_CONFIG);
           let content = fs.readFileSync('firebase-data.js', 'utf8');
           
-          // replace the placeholder
           content = content.replace(
             'const firebaseConfig = {"PLACEHOLDER":true};',
             'const firebaseConfig = ' + JSON.stringify(config, null, 2) + ';'
           );
           
           fs.writeFileSync('firebase-data.js', content);
-          console.log('config injected successfully');
-          SCRIPT
+          console.log('firebase config injected successfully');
+          EOF
           
-          # clean up
-          rm config.json
+          FIREBASE_CONFIG='${{ secrets.FIREBASE_CONFIG }}' node inject.js
           
-          # show first few lines to verify (secrets will be hidden by github)
-          echo "firebase-data.js first 10 lines:"
+          echo "first 10 lines of firebase-data.js:"
           head -10 firebase-data.js
 
       - name: Setup Pages

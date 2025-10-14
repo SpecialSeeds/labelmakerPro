@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rx Label Maker</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h2>Menu</h2>
+        </div>
+        <ul class="sidebar-nav">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="medidose.html">MediDose Labels</a></li>
+            <li><a href="rxlabel.html" class="active">Rx Labels</a></li>
+            <li><a href="settings.html">Settings</a></li>
+        </ul>
+    </nav>
+
+    <div class="main-content">
+        <div class="container">
+            <h1>Prescription Label Maker</h1>
+
+            <div id="patientLookup" class="section">
+                <h2>patient lookup</h2>
+                <div class="form-group">
+                    <label for="patientDOB">patient date of birth</label>
+                    <input type="date" id="patientDOB" required>
+                </div>
+                <button type="button" class="generate-btn" onclick="searchPatient()">search patient</button>
+                
+                <div id="patientResults" style="margin-top: 20px; display: none;">
+                    <h3>select patient:</h3>
+                    <select id="patientSelect" size="5" style="width: 100%; padding: 10px; margin-bottom: 10px;">
+                    </select>
+                    <button type="button" class="generate-btn" onclick="selectPatient()">select</button>
+                    <button type="button" class="secondary-btn" onclick="showAddPatient()">add new patient</button>
+                </div>
+            </div>
+
+            <div id="addPatientSection" class="section" style="display: none;">
+                <h2>add new patient</h2>
+                <form id="addPatientForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="firstName">first name</label>
+                            <input type="text" id="firstName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="lastName">last name</label>
+                            <input type="text" id="lastName" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="newPatientDOB">date of birth</label>
+                            <input type="date" id="newPatientDOB" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="gender">gender</label>
+                            <select id="gender" required>
+                                <option value="">select</option>
+                                <option value="M">male</option>
+                                <option value="F">female</option>
+                                <option value="O">other</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="phone">phone number</label>
+                            <input type="tel" id="phone" placeholder="(555) 555-5555" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="address">address</label>
+                            <input type="text" id="address" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="weight">weight (kg)</label>
+                            <input type="number" id="weight" step="0.1" placeholder="70.0">
+                        </div>
+                        <div class="form-group">
+                            <label for="height">height (cm)</label>
+                            <input type="number" id="height" step="0.1" placeholder="170.0">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="allergies">allergies</label>
+                        <input type="text" id="allergies" placeholder="NKDA or list allergies">
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="insurancePlan">insurance plan</label>
+                            <select id="insurancePlan">
+                                <option value="">no insurance</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="memberId">member id</label>
+                            <input type="text" id="memberId" placeholder="member id">
+                        </div>
+                    </div>
+
+                    <button type="submit" class="generate-btn">add patient</button>
+                    <button type="button" class="secondary-btn" onclick="cancelAddPatient()">cancel</button>
+                </form>
+            </div>
+
+            <div id="prescriptionSection" class="section" style="display: none;">
+                <h2>prescription information</h2>
+                
+                <div id="selectedPatientInfo" class="patient-info-box"></div>
+
+                <form id="prescriptionForm">
+                    <div class="form-group">
+                        <label for="drugName">drug prescribed</label>
+                        <input type="text" id="drugName" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="manufacturer">manufacturer</label>
+                            <input type="text" id="manufacturer" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="ndc">ndc</label>
+                            <input type="text" id="ndc" placeholder="XXXXX-XXXX-XX" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="directions">directions</label>
+                        <textarea id="directions" rows="3" placeholder="take 1 tablet by mouth twice daily" required></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="quantity">quantity</label>
+                            <input type="number" id="quantity" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="daysSupply">days supply</label>
+                            <input type="number" id="daysSupply" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="refills">refills</label>
+                            <input type="number" id="refills" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label>controlled substance</label>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="isControlled" onchange="toggleDEARequired()">
+                                <label for="isControlled">this is a controlled substance (crx)</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="prescriberName">prescriber name</label>
+                        <input type="text" id="prescriberName" placeholder="dr. smith" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="prescriberNPI">prescriber npi</label>
+                            <input type="text" id="prescriberNPI" placeholder="1234567890">
+                        </div>
+                        <div class="form-group">
+                            <label for="prescriberDEA">prescriber dea</label>
+                            <input type="text" id="prescriberDEA" placeholder="AB1234563">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="numLabels">number of labels</label>
+                            <input type="number" id="numLabels" min="1" value="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label>debug mode</label>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="debugMode">
+                                <label for="debugMode">print to pdf instead of printer</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="generate-btn">print labels</button>
+                    <button type="button" class="secondary-btn" onclick="resetForm()">start over</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="firebase-data.js"></script>
+    <script src="rxlabel-script.js"></script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings</title>
+    <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h2>Menu</h2>
+        </div>
+        <ul class="sidebar-nav">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="medidose.html">MediDose Labels</a></li>
+            <li><a href="rxlabel.html">Rx Labels</a></li>
+            <li><a href="settings.html" class="active">Settings</a></li>
+        </ul>
+    </nav>
+
+    <div class="main-content">
+        <div class="container">
+            <h1>settings</h1>
+
+            <div class="section">
+                <h2>pharmacy information</h2>
+                <form id="settingsForm">
+                    <div class="form-group">
+                        <label for="pharmacyName">pharmacy name</label>
+                        <input type="text" id="pharmacyName" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pharmacyAddress">pharmacy address</label>
+                        <input type="text" id="pharmacyAddress" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pharmacyPhone">pharmacy phone</label>
+                        <input type="tel" id="pharmacyPhone" placeholder="(555) 555-5555" required>
+                    </div>
+
+                    <button type="submit" class="generate-btn">save settings</button>
+                </form>
+
+                <div id="saveMessage" style="display: none; margin-top: 16px; padding: 12px; background: #d1fae5; color: #065f46; border-radius: 6px;">
+                    settings saved successfully
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SETTINGS_KEY = 'pharmacySettings';
+
+        function getSettings() {
+            const defaults = {
+                pharmacyName: 'Chantilly Academy Pharmacy',
+                pharmacyAddress: '4201 Stringfellow Rd, VA 20151',
+                pharmacyPhone: '(888)-888-8888'
+            };
+            
+            const saved = localStorage.getItem(SETTINGS_KEY);
+            return saved ? JSON.parse(saved) : defaults;
+        }
+
+        function saveSettings(settings) {
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            const settings = getSettings();
+            document.getElementById('pharmacyName').value = settings.pharmacyName;
+            document.getElementById('pharmacyAddress').value = settings.pharmacyAddress;
+            document.getElementById('pharmacyPhone').value = settings.pharmacyPhone;
+        });
+
+        document.getElementById('settingsForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+
+            const settings = {
+                pharmacyName: document.getElementById('pharmacyName').value,
+                pharmacyAddress: document.getElementById('pharmacyAddress').value,
+                pharmacyPhone: document.getElementById('pharmacyPhone').value
+            };
+
+            saveSettings(settings);
+
+            const message = document.getElementById('saveMessage');
+            message.style.display = 'block';
+            setTimeout(() => {
+                message.style.display = 'none';
+            }, 3000);
+        });
+    </script>
+</body>
+</html>

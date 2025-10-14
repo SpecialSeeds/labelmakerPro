@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediDose Label Generator</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+</head>
+<body>
+    <div id="passwordModal" class="modal">
+        <div class="modal-content">
+            <h2>Enter Password</h2>
+            <input type="password" id="passwordInput" placeholder="Password">
+            <button onclick="checkPassword()" class="generate-btn">Submit</button>
+            <p id="passwordError" style="color: red; display: none;">Incorrect password</p>
+        </div>
+    </div>
+
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h2>Menu</h2>
+        </div>
+        <ul class="sidebar-nav">
+            <li><a href="index.html">Home</a></li>
+            <li><a href="medidose.html" class="active">MediDose Labels</a></li>
+            <li><a href="rxlabel.html">Rx Labels</a></li>
+            <li><a href="settings.html">Settings</a></li>
+        </ul>
+    </nav>
+
+    <div id="mainContent" class="main-content" style="display: none;">
+        <div class="container">
+            <h1>Medication Label Generator</h1>
+            <form id="labelForm">
+                <div class="form-group">
+                    <label for="brandName">Brand Name</label>
+                    <input type="text" id="brandName" placeholder="brand name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="genericName">Generic Name</label>
+                    <input type="text" id="genericName" placeholder="generic name" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="ndc">NDC</label>
+                    <input type="text" id="ndc" placeholder="XXXX-XXXX-XX" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="strength">Strength</label>
+                    <input type="text" id="strength" placeholder="strength (include units)" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="form">Form</label>
+                    <input type="text" id="form" placeholder="(tablets, capsules, etc.)" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" placeholder="packager" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="controlled">Controlled</label>
+                    <select id="controlled">
+                        <option value="">None</option>
+                        <option value="2">Schedule II</option>
+                        <option value="3">Schedule III</option>
+                        <option value="4">Schedule IV</option>
+                        <option value="5">Schedule V</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="generate-btn">create medidose label</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const PASSWORD = "4021"; 
+
+        function checkPassword() {
+            const input = document.getElementById('passwordInput').value;
+            if (input === PASSWORD) {
+                document.getElementById('passwordModal').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+                sessionStorage.setItem('medidoseAuth', 'true');
+            } else {
+                document.getElementById('passwordError').style.display = 'block';
+            }
+        }
+
+        // check if already authenticated
+        window.addEventListener('DOMContentLoaded', () => {
+            if (sessionStorage.getItem('medidoseAuth') === 'true') {
+                document.getElementById('passwordModal').style.display = 'none';
+                document.getElementById('mainContent').style.display = 'block';
+            }
+        });
+
+        document.getElementById('passwordInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                checkPassword();
+            }
+        });
+    </script>
+    <script src="medidose-script.js"></script>
+</body>
+</html>

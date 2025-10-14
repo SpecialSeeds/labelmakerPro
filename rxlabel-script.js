@@ -93,35 +93,49 @@ function cancelAddPatient() {
 document.getElementById('addPatientForm').addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    const insuranceData = document.getElementById('insurancePlan').value;
-    let insurance = null;
-    if (insuranceData) {
-        insurance = {
-            ...JSON.parse(insuranceData),
-            memberId: document.getElementById('memberId').value
-        };
-    }
+    console.log('form submitted');
 
-    const patient = {
-        firstName: document.getElementById('firstName').value,
-        lastName: document.getElementById('lastName').value,
-        dateOfBirth: document.getElementById('newPatientDOB').value,
-        gender: document.getElementById('gender').value,
-        phone: document.getElementById('phone').value,
-        address: document.getElementById('address').value,
-        weight: document.getElementById('weight').value,
-        height: document.getElementById('height').value,
-        allergies: document.getElementById('allergies').value || 'NKDA',
-        insurance: insurance
-    };
+    const btn = e.target.querySelector('button[type="submit"]');
+    const originalText = btn.textContent;
+    btn.textContent = 'adding patient...';
+    btn.disabled = true;
 
     try {
+        const insuranceData = document.getElementById('insurancePlan').value;
+        let insurance = null;
+        if (insuranceData) {
+            insurance = {
+                ...JSON.parse(insuranceData),
+                memberId: document.getElementById('memberId').value
+            };
+        }
+
+        const patient = {
+            firstName: document.getElementById('firstName').value,
+            lastName: document.getElementById('lastName').value,
+            dateOfBirth: document.getElementById('newPatientDOB').value,
+            gender: document.getElementById('gender').value,
+            phone: document.getElementById('phone').value,
+            address: document.getElementById('address').value,
+            weight: document.getElementById('weight').value,
+            height: document.getElementById('height').value,
+            allergies: document.getElementById('allergies').value || 'NKDA',
+            insurance: insurance
+        };
+
+        console.log('patient data:', patient);
+
         selectedPatient = await patientDB.addPatient(patient);
+        console.log('patient added:', selectedPatient);
+        
         alert('patient added successfully');
         showPrescriptionForm();
     } catch (error) {
         console.error('error adding patient:', error);
-        alert('error adding patient to database');
+        alert('error adding patient: ' + error.message);
+    } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
     }
 });
 

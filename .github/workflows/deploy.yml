@@ -25,6 +25,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Inject Firebase Config
+        env:
+          FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
         run: |
           cat > inject.js << 'EOF'
           const fs = require('fs');
@@ -40,10 +42,11 @@ jobs:
           console.log('firebase config injected successfully');
           EOF
           
-          FIREBASE_CONFIG='${{ secrets.FIREBASE_CONFIG }}' node inject.js
+          node inject.js
+          rm inject.js
           
-          echo "first 10 lines of firebase-data.js:"
-          head -10 firebase-data.js
+          echo "verification - first 3 lines:"
+          head -3 firebase-data.js
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

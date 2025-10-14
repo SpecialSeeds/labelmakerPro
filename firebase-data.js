@@ -6,6 +6,7 @@ const firebaseConfig = {
   messagingSenderId: "PLACEHOLDER",
   appId: "PLACEHOLDER"
 };
+
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 

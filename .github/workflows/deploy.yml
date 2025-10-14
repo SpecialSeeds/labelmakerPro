@@ -19,19 +19,29 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Inject Firebase config
-        env:
-          FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
         run: |
-          # create temp file with firebase config
-          cat > firebase-config-temp.js << 'EOF'
-          const firebaseConfig = ${{ secrets.FIREBASE_CONFIG }};
-          firebase.initializeApp(firebaseConfig);
-          const db = firebase.firestore();
+          cat > firebase-config.json << 'EOF'
+          ${{ secrets.FIREBASE_CONFIG }}
           EOF
           
-          # inject into firebase-data.js at the right place
-          sed -i '/const firebaseConfig = {/,/};/c\
-          const firebaseConfig = '"$FIREBASE_CONFIG"';' firebase-data.js
+          node << 'SCRIPT'
+          const fs = require('fs');
+          const config = JSON.parse(fs.readFileSync('firebase-config.json', 'utf8'));
+          
+          let firebaseData = fs.readFileSync('firebase-data.js', 'utf8');
+          
+          // replace the placeholder config
+          const configString = JSON.stringify(config, null, 2);
+          firebaseData = firebaseData.replace(
+            /const firebaseConfig = \{[^}]*\};/s,
+            'const firebaseConfig = ' + configString + ';'
+          );
+          
+          fs.writeFileSync('firebase-data.js', firebaseData);
+          console.log('Firebase config injected successfully');
+          SCRIPT
+          
+          rm firebase-config.json
 
       - name: Setup Pages
         uses: actions/configure-pages@v3

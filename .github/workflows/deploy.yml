@@ -26,11 +26,14 @@ jobs:
 
       - name: Inject Firebase Config
         env:
-          FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
+          FIREBASE_CONFIG_B64: ${{ secrets.FIREBASE_CONFIG }}
         run: |
           cat > inject.js << 'EOF'
           const fs = require('fs');
-          const config = JSON.parse(process.env.FIREBASE_CONFIG);
+          const configB64 = process.env.FIREBASE_CONFIG_B64;
+          const configJson = Buffer.from(configB64, 'base64').toString('utf8');
+          const config = JSON.parse(configJson);
+          
           let content = fs.readFileSync('firebase-data.js', 'utf8');
           
           content = content.replace(

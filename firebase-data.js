@@ -1,10 +1,10 @@
 const firebaseConfig = {
-  apiKey: "PLACEHOLDER",
-  authDomain: "PLACEHOLDER",
-  projectId: "PLACEHOLDER",
-  storageBucket: "PLACEHOLDER",
-  messagingSenderId: "PLACEHOLDER",
-  appId: "PLACEHOLDER"
+  apiKey: "REPLACE_API_KEY",
+  authDomain: "REPLACE_AUTH_DOMAIN",
+  projectId: "REPLACE_PROJECT_ID",
+  storageBucket: "REPLACE_STORAGE_BUCKET",
+  messagingSenderId: "REPLACE_MESSAGING_SENDER_ID",
+  appId: "REPLACE_APP_ID"
 };
 
 firebase.initializeApp(firebaseConfig);

@@ -10,47 +10,60 @@ permissions:
   pages: write
   id-token: write
 
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
-      - name: Inject Firebase config
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Inject Firebase Config
+        env:
+          CONFIG: ${{ secrets.FIREBASE_CONFIG }}
         run: |
-          cat > firebase-config.json << 'EOF'
-          ${{ secrets.FIREBASE_CONFIG }}
-          EOF
+          echo "injecting firebase config..."
           
+          # write config to temp file
+          echo "$CONFIG" > config.json
+          
+          # use node to do the replacement
           node << 'SCRIPT'
           const fs = require('fs');
-          const config = JSON.parse(fs.readFileSync('firebase-config.json', 'utf8'));
+          const config = JSON.parse(fs.readFileSync('config.json', 'utf8'));
+          let content = fs.readFileSync('firebase-data.js', 'utf8');
           
-          let firebaseData = fs.readFileSync('firebase-data.js', 'utf8');
-          
-          // replace the placeholder config
-          const configString = JSON.stringify(config, null, 2);
-          firebaseData = firebaseData.replace(
-            /const firebaseConfig = \{[^}]*\};/s,
-            'const firebaseConfig = ' + configString + ';'
+          // replace the placeholder
+          content = content.replace(
+            'const firebaseConfig = {"PLACEHOLDER":true};',
+            'const firebaseConfig = ' + JSON.stringify(config, null, 2) + ';'
           );
           
-          fs.writeFileSync('firebase-data.js', firebaseData);
-          console.log('Firebase config injected successfully');
+          fs.writeFileSync('firebase-data.js', content);
+          console.log('config injected successfully');
           SCRIPT
           
-          rm firebase-config.json
+          # clean up
+          rm config.json
+          
+          # show first few lines to verify (secrets will be hidden by github)
+          echo "firebase-data.js first 10 lines:"
+          head -10 firebase-data.js
 
       - name: Setup Pages
-        uses: actions/configure-pages@v3
+        uses: actions/configure-pages@v5
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v2
+        uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v2
+        uses: actions/deploy-pages@v4

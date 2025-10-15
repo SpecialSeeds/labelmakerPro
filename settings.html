@@ -116,25 +116,30 @@
         <div id="error-message" class="error-message"></div>
 
         <div class="settings-section">
-            <h2>Security</h2>
-            <form id="password-form">
+            <h2>Pharmacy Settings</h2>
+            <form id="settings-form">
                 <div class="form-group">
-                    <label for="current-password">Current Password</label>
-                    <input type="password" id="current-password" required>
+                    <label for="pharmacy-name">Pharmacy Name</label>
+                    <input type="text" id="pharmacy-name" required>
                 </div>
                 
                 <div class="form-group">
-                    <label for="new-password">New Password</label>
-                    <input type="password" id="new-password" required minlength="6">
-                    <div class="password-hint">Must be at least 6 characters</div>
+                    <label for="pharmacy-address">Pharmacy Address</label>
+                    <input type="text" id="pharmacy-address" required>
                 </div>
                 
                 <div class="form-group">
-                    <label for="confirm-password">Confirm New Password</label>
-                    <input type="password" id="confirm-password" required minlength="6">
+                    <label for="pharmacy-phone">Pharmacy Phone</label>
+                    <input type="tel" id="pharmacy-phone" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" required minlength="6">
+                    <div class="password-hint">This password protects settings and medidose printing. Must be at least 6 characters.</div>
                 </div>
 
-                <button type="submit" class="btn-save">Update Password</button>
+                <button type="submit" class="btn-save">Save Settings</button>
                 <a href="index.html" class="btn-back">Back to Home</a>
             </form>
         </div>
@@ -143,13 +148,13 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script src="firebase-data.js"></script>
+    
     <script>
-        // Check if user is authenticated
         if (!sessionStorage.getItem('authenticated')) {
             window.location.href = 'index.html';
         }
 
-        const passwordForm = document.getElementById('password-form');
+        const settingsForm = document.getElementById('settings-form');
         const successMessage = document.getElementById('success-message');
         const errorMessage = document.getElementById('error-message');
 
@@ -161,41 +166,43 @@
             }, 5000);
         }
 
-        passwordForm.addEventListener('submit', async (e) => {
+        // Load current settings
+        async function loadSettings() {
+            try {
+                const settings = await settingsManager.getSettings();
+                document.getElementById('pharmacy-name').value = settings.pharmacyName || '';
+                document.getElementById('pharmacy-address').value = settings.pharmacyAddress || '';
+                document.getElementById('pharmacy-phone').value = settings.pharmacyPhone || '';
+                document.getElementById('password').value = settings.password || '';
+            } catch (error) {
+                console.error('Error loading settings:', error);
+            }
+        }
+
+        loadSettings();
+
+        // Handle settings update
+        settingsForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const currentPassword = document.getElementById('current-password').value;
-            const newPassword = document.getElementById('new-password').value;
-            const confirmPassword = document.getElementById('confirm-password').value;
+            const newSettings = {
+                pharmacyName: document.getElementById('pharmacy-name').value,
+                pharmacyAddress: document.getElementById('pharmacy-address').value,
+                pharmacyPhone: document.getElementById('pharmacy-phone').value,
+                password: document.getElementById('password').value
+            };
 
-            // Validate new password
-            if (newPassword !== confirmPassword) {
-                showMessage(errorMessage, 'New passwords do not match!');
-                return;
-            }
-
-            if (newPassword.length < 6) {
+            if (newSettings.password.length < 6) {
                 showMessage(errorMessage, 'Password must be at least 6 characters!');
                 return;
             }
 
             try {
-                // Verify current password
-                const isValid = await settingsManager.verifyPassword(currentPassword);
-                if (!isValid) {
-                    showMessage(errorMessage, 'Current password is incorrect!');
-                    return;
-                }
-
-                // Update password
-                await settingsManager.updatePassword(newPassword);
-                showMessage(successMessage, 'Password updated successfully!');
-                
-                // Clear form
-                passwordForm.reset();
+                await settingsManager.updateSettings(newSettings);
+                showMessage(successMessage, 'Settings updated successfully!');
             } catch (error) {
-                console.error('Error updating password:', error);
-                showMessage(errorMessage, 'Failed to update password. Please try again.');
+                console.error('Error updating settings:', error);
+                showMessage(errorMessage, 'Failed to update settings. Please try again.');
             }
         });
     </script>

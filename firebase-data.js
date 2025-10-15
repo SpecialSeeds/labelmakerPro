@@ -126,7 +126,7 @@ class PatientDatabase {
 class SettingsManager {
     constructor() {
         this.settingsRef = db.collection('settings').doc('app_settings');
-        this.defaultPassword = 'password'; 
+        this.defaultPassword = 'password';
     }
 
     async getSettings() {
@@ -137,6 +137,9 @@ class SettingsManager {
             } else {
                 const defaultSettings = {
                     password: this.defaultPassword,
+                    pharmacyName: 'Chantilly Academy Pharmacy',
+                    pharmacyAddress: '4201 Stringfellow Rd, Chantilly, VA 20151',
+                    pharmacyPhone: '(703) 222-2228',
                     updatedAt: new Date().toISOString()
                 };
                 await this.settingsRef.set(defaultSettings);
@@ -144,19 +147,24 @@ class SettingsManager {
             }
         } catch (error) {
             console.error('error getting settings:', error);
-            return { password: this.defaultPassword };
+            return { 
+                password: this.defaultPassword,
+                pharmacyName: 'Chantilly Academy Pharmacy',
+                pharmacyAddress: '4201 Stringfellow Rd, Chantilly, VA 20151',
+                pharmacyPhone: '(703) 222-2228'
+            };
         }
     }
 
-    async updatePassword(newPassword) {
+    async updateSettings(settings) {
         try {
             await this.settingsRef.update({
-                password: newPassword,
+                ...settings,
                 updatedAt: new Date().toISOString()
             });
             return true;
         } catch (error) {
-            console.error('error updating password:', error);
+            console.error('error updating settings:', error);
             throw error;
         }
     }
@@ -167,6 +175,5 @@ class SettingsManager {
     }
 }
 
-const settingsManager = new SettingsManager();
-
-const patientDB = new PatientDatabase();
+settingsManager = new SettingsManager();
+patientDB = new PatientDatabase();

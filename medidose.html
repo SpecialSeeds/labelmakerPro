@@ -9,12 +9,17 @@
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
 </head>
 <body>
-    <div id="passwordModal" class="modal">
-        <div class="modal-content">
-            <h2>Enter Password</h2>
-            <input type="password" id="passwordInput" placeholder="Password">
-            <button onclick="checkPassword()" class="generate-btn">Submit</button>
-            <p id="passwordError" style="color: red; display: none;">Incorrect password</p>
+    <!-- Password Modal to Access Page -->
+    <div id="password-modal" style="display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
+        <div style="background: white; padding: 40px; border-radius: 10px; max-width: 400px; width: 90%;">
+            <h2 style="margin-top: 0;">Enter Password</h2>
+            <form id="password-check-form">
+                <div class="form-group">
+                    <input type="password" id="password-input" placeholder="Password" required style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 1em; box-sizing: border-box;">
+                </div>
+                <button type="submit" style="width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 5px; font-size: 1em; cursor: pointer;">Submit</button>
+                <div id="password-error" style="color: #dc3545; margin-top: 10px; display: none;">Incorrect password!</div>
+            </form>
         </div>
     </div>
 
@@ -30,7 +35,7 @@
         </ul>
     </nav>
 
-    <div id="mainContent" class="main-content" style="display: none;">
+    <div class="main-content" id="main-content" style="display: none;">
         <div class="container">
             <h1>Medication Label Generator</h1>
             <form id="labelForm">
@@ -80,65 +85,41 @@
         </div>
     </div>
 
-<!-- Password Modal for Printing -->
-<div id="print-password-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center;">
-    <div style="background: white; padding: 40px; border-radius: 10px; max-width: 400px; width: 90%;">
-        <h2 style="margin-top: 0;">Enter Password to Print</h2>
-        <form id="print-password-form">
-            <div class="form-group">
-                <input type="password" id="print-password-input" placeholder="Password" required style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 1em; box-sizing: border-box; margin-bottom: 10px;">
-            </div>
-            <button type="submit" style="width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 5px; font-size: 1em; cursor: pointer; margin-bottom: 10px;">Print</button>
-            <button type="button" id="cancel-print" style="width: 100%; padding: 12px; background: #6c757d; color: white; border: none; border-radius: 5px; font-size: 1em; cursor: pointer;">Cancel</button>
-            <div id="print-password-error" style="color: #dc3545; margin-top: 10px; display: none;">Incorrect password!</div>
-        </form>
-    </div>
-</div>
-
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script src="firebase-data.js"></script>
 
     <script>
-    const printPasswordModal = document.getElementById('print-password-modal');
-    const printPasswordForm = document.getElementById('print-password-form');
-    const printPasswordInput = document.getElementById('print-password-input');
-    const printPasswordError = document.getElementById('print-password-error');
-    const cancelPrintBtn = document.getElementById('cancel-print');
+    // Password protection to access the page
+    const passwordModal = document.getElementById('password-modal');
+    const passwordCheckForm = document.getElementById('password-check-form');
+    const passwordInput = document.getElementById('password-input');
+    const passwordError = document.getElementById('password-error');
+    const mainContent = document.getElementById('main-content');
 
-    const originalPrintLabel = window.printLabel;
-    window.printLabel = function() {
-        printPasswordModal.style.display = 'flex';
-    };
-
-    printPasswordForm.addEventListener('submit', async (e) => {
+    passwordCheckForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const password = printPasswordInput.value;
+        const password = passwordInput.value;
         
         try {
             const isValid = await settingsManager.verifyPassword(password);
             if (isValid) {
-                printPasswordModal.style.display = 'none';
-                printPasswordError.style.display = 'none';
-                printPasswordInput.value = '';
-                // Call the original print function
-                window.print();
+                passwordModal.style.display = 'none';
+                mainContent.style.display = 'block';
+                passwordError.style.display = 'none';
             } else {
-                printPasswordError.style.display = 'block';
-                printPasswordInput.value = '';
+                passwordError.style.display = 'block';
+                passwordInput.value = '';
             }
         } catch (error) {
             console.error('Error checking password:', error);
-            printPasswordError.textContent = 'Error checking password. Please try again.';
-            printPasswordError.style.display = 'block';
+            passwordError.textContent = 'Error checking password. Please try again.';
+            passwordError.style.display = 'block';
         }
     });
-
-    cancelPrintBtn.addEventListener('click', () => {
-        printPasswordModal.style.display = 'none';
-        printPasswordInput.value = '';
-        printPasswordError.style.display = 'none';
-    });
     </script>
+
+    <script src="medidose-script.js"></script>
+    <script src="footer.js"></script>
 </body>
 </html>

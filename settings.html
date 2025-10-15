@@ -3,95 +3,200 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Settings</title>
-    <link rel="stylesheet" href="./styles.css">
+    <title>Settings - Rx Label Maker</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .settings-container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 30px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .settings-section {
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .settings-section:last-child {
+            border-bottom: none;
+        }
+
+        .settings-section h2 {
+            margin-top: 0;
+            color: #333;
+            font-size: 1.3em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+            box-sizing: border-box;
+        }
+
+        .btn-save {
+            background: #4CAF50;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .btn-save:hover {
+            background: #45a049;
+        }
+
+        .btn-back {
+            background: #6c757d;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        .btn-back:hover {
+            background: #5a6268;
+        }
+
+        .password-hint {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            display: none;
+        }
+    </style>
 </head>
 <body>
-    <nav class="sidebar">
-        <div class="sidebar-header">
-            <h2>Menu</h2>
-        </div>
-        <ul class="sidebar-nav">
-            <li><a href="index.html">Home</a></li>
-            <li><a href="medidose.html">MediDose Labels</a></li>
-            <li><a href="rxlabel.html">Rx Labels</a></li>
-            <li><a href="settings.html" class="active">Settings</a></li>
-        </ul>
-    </nav>
+    <div class="settings-container">
+        <h1>Settings</h1>
+        
+        <div id="success-message" class="success-message"></div>
+        <div id="error-message" class="error-message"></div>
 
-    <div class="main-content">
-        <div class="container">
-            <h1>settings</h1>
-
-            <div class="section">
-                <h2>pharmacy information</h2>
-                <form id="settingsForm">
-                    <div class="form-group">
-                        <label for="pharmacyName">pharmacy name</label>
-                        <input type="text" id="pharmacyName" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="pharmacyAddress">pharmacy address</label>
-                        <input type="text" id="pharmacyAddress" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="pharmacyPhone">pharmacy phone</label>
-                        <input type="tel" id="pharmacyPhone" placeholder="(555) 555-5555" required>
-                    </div>
-
-                    <button type="submit" class="generate-btn">save settings</button>
-                </form>
-
-                <div id="saveMessage" style="display: none; margin-top: 16px; padding: 12px; background: #d1fae5; color: #065f46; border-radius: 6px;">
-                    settings saved successfully
+        <div class="settings-section">
+            <h2>Security</h2>
+            <form id="password-form">
+                <div class="form-group">
+                    <label for="current-password">Current Password</label>
+                    <input type="password" id="current-password" required>
                 </div>
-            </div>
+                
+                <div class="form-group">
+                    <label for="new-password">New Password</label>
+                    <input type="password" id="new-password" required minlength="6">
+                    <div class="password-hint">Must be at least 6 characters</div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirm-password">Confirm New Password</label>
+                    <input type="password" id="confirm-password" required minlength="6">
+                </div>
+
+                <button type="submit" class="btn-save">Update Password</button>
+                <a href="index.html" class="btn-back">Back to Home</a>
+            </form>
         </div>
     </div>
 
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="firebase-data.js"></script>
     <script>
-        const SETTINGS_KEY = 'pharmacySettings';
-
-        function getSettings() {
-            const defaults = {
-                pharmacyName: 'Chantilly Academy Pharmacy',
-                pharmacyAddress: '4201 Stringfellow Rd, VA 20151',
-                pharmacyPhone: '(888)-888-8888'
-            };
-            
-            const saved = localStorage.getItem(SETTINGS_KEY);
-            return saved ? JSON.parse(saved) : defaults;
+        // Check if user is authenticated
+        if (!sessionStorage.getItem('authenticated')) {
+            window.location.href = 'index.html';
         }
 
-        function saveSettings(settings) {
-            localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        const passwordForm = document.getElementById('password-form');
+        const successMessage = document.getElementById('success-message');
+        const errorMessage = document.getElementById('error-message');
+
+        function showMessage(element, message) {
+            element.textContent = message;
+            element.style.display = 'block';
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 5000);
         }
 
-        window.addEventListener('DOMContentLoaded', () => {
-            const settings = getSettings();
-            document.getElementById('pharmacyName').value = settings.pharmacyName;
-            document.getElementById('pharmacyAddress').value = settings.pharmacyAddress;
-            document.getElementById('pharmacyPhone').value = settings.pharmacyPhone;
-        });
-
-        document.getElementById('settingsForm').addEventListener('submit', (e) => {
+        passwordForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const settings = {
-                pharmacyName: document.getElementById('pharmacyName').value,
-                pharmacyAddress: document.getElementById('pharmacyAddress').value,
-                pharmacyPhone: document.getElementById('pharmacyPhone').value
-            };
+            const currentPassword = document.getElementById('current-password').value;
+            const newPassword = document.getElementById('new-password').value;
+            const confirmPassword = document.getElementById('confirm-password').value;
 
-            saveSettings(settings);
+            // Validate new password
+            if (newPassword !== confirmPassword) {
+                showMessage(errorMessage, 'New passwords do not match!');
+                return;
+            }
 
-            const message = document.getElementById('saveMessage');
-            message.style.display = 'block';
-            setTimeout(() => {
-                message.style.display = 'none';
-            }, 3000);
+            if (newPassword.length < 6) {
+                showMessage(errorMessage, 'Password must be at least 6 characters!');
+                return;
+            }
+
+            try {
+                // Verify current password
+                const isValid = await settingsManager.verifyPassword(currentPassword);
+                if (!isValid) {
+                    showMessage(errorMessage, 'Current password is incorrect!');
+                    return;
+                }
+
+                // Update password
+                await settingsManager.updatePassword(newPassword);
+                showMessage(successMessage, 'Password updated successfully!');
+                
+                // Clear form
+                passwordForm.reset();
+            } catch (error) {
+                console.error('Error updating password:', error);
+                showMessage(errorMessage, 'Failed to update password. Please try again.');
+            }
         });
     </script>
 </body>

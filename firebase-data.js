@@ -122,4 +122,51 @@ class PatientDatabase {
     }
 }
 
+// Settings management
+class SettingsManager {
+    constructor() {
+        this.settingsRef = db.collection('settings').doc('app_settings');
+        this.defaultPassword = 'password'; 
+    }
+
+    async getSettings() {
+        try {
+            const doc = await this.settingsRef.get();
+            if (doc.exists) {
+                return doc.data();
+            } else {
+                const defaultSettings = {
+                    password: this.defaultPassword,
+                    updatedAt: new Date().toISOString()
+                };
+                await this.settingsRef.set(defaultSettings);
+                return defaultSettings;
+            }
+        } catch (error) {
+            console.error('error getting settings:', error);
+            return { password: this.defaultPassword };
+        }
+    }
+
+    async updatePassword(newPassword) {
+        try {
+            await this.settingsRef.update({
+                password: newPassword,
+                updatedAt: new Date().toISOString()
+            });
+            return true;
+        } catch (error) {
+            console.error('error updating password:', error);
+            throw error;
+        }
+    }
+
+    async verifyPassword(inputPassword) {
+        const settings = await this.getSettings();
+        return inputPassword === settings.password;
+    }
+}
+
+const settingsManager = new SettingsManager();
+
 const patientDB = new PatientDatabase();

@@ -32,7 +32,7 @@ async function loadFooter() {
                     
                     <div class="footer-section">
                         <h3>credits</h3>
-                        <p>developed by thomas chia</p>
+                        <p>developed by specialseeds</p>
                         <p>built with firebase & vanilla javascript</p>
                         <p class="footer-copyright">© ${currentYear} ${settings.pharmacyName || 'Chantilly Academy Pharmacy'}. all rights reserved.</p>
                     </div>

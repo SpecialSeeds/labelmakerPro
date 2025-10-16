@@ -12,9 +12,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
 function getSettings() {
     const defaults = {
-        pharmacyName: 'UVA Health Pharmacy',
-        pharmacyAddress: '1215 Lee St, Charlottesville, VA 22903',
-        pharmacyPhone: '(434) 924-0000'
+        pharmacyName: 'Chantilly Academy Pharmacy',
+        pharmacyAddress: '4201 Stringfellow Rd, Greenbriar, VA 20151',
+        pharmacyPhone: '(420) 102 0151'
     };
     
     const saved = localStorage.getItem('pharmacySettings');

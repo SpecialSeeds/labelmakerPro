@@ -34,8 +34,12 @@ async function searchPatient() {
         return;
     }
 
+    console.log('Searching for DOB:', dob); // Debug log
+
     try {
         const matches = await patientDB.findPatientByDOB(dob);
+        console.log('Found matches:', matches.length); // Debug log
+        
         const resultsDiv = document.getElementById('patientResults');
         const selectElement = document.getElementById('patientSelect');
 
@@ -49,6 +53,7 @@ async function searchPatient() {
         }
 
         matches.forEach(patient => {
+            console.log('Patient DOB:', patient.dateOfBirth); // Debug log
             const option = document.createElement('option');
             option.value = patient.id;
             option.textContent = `${patient.firstName} ${patient.lastName} - ${patient.address}`;

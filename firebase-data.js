@@ -103,7 +103,14 @@ class PatientDatabase {
 
     async findPatientByDOB(dob) {
         try {
+            console.log('Firebase query - searching for DOB:', dob);
             const snapshot = await this.patientsRef.where('dateOfBirth', '==', dob).get();
+            console.log('Firebase query - found docs:', snapshot.docs.length);
+            
+            if (snapshot.docs.length > 0) {
+                console.log('First patient DOB in DB:', snapshot.docs[0].data().dateOfBirth);
+            }
+            
             return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         } catch (error) {
             console.error('error finding patient:', error);

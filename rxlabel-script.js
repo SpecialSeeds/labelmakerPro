@@ -295,9 +295,9 @@ async function generateRxLabel(data, numLabels, debugMode) {
         doc.text(directions, 10, currentY);
         
         const barcodeWidth = 70;
-        const barcodeHeight = 25;
+        const barcodeHeight = 20;
         const barcodeX = labelWidth - barcodeWidth - 10;
-        const barcodeY = currentY - 5;
+        const barcodeY = currentY - 10;
         doc.addImage(barcodeImg, 'PNG', barcodeX, barcodeY, barcodeWidth, barcodeHeight);
         
         currentY += (directions.length * 10) + 10;

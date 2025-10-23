@@ -1,13 +1,21 @@
 let selectedPatient = null;
 
-window.addEventListener('DOMContentLoaded', () => {
+// Initialize when DOM is loaded
+window.addEventListener('DOMContentLoaded', async () => {
+    // Initialize insurance plans dropdown
     const insuranceSelect = document.getElementById('insurancePlan');
-    insurancePlans.forEach(plan => {
-        const option = document.createElement('option');
-        option.value = JSON.stringify(plan);
-        option.textContent = `${plan.name} (BIN: ${plan.bin})`;
-        insuranceSelect.appendChild(option);
-    });
+    if (insuranceSelect) {
+        insurancePlans.forEach(plan => {
+            const option = document.createElement('option');
+            option.value = JSON.stringify(plan);
+            option.textContent = `${plan.name} (BIN: ${plan.bin})`;
+            insuranceSelect.appendChild(option);
+        });
+    }
+    
+    // Initialize Dymo printing
+    await initializeDymo();
+    await updatePrinterStatus();
 });
 
 function getSettings() {
@@ -237,6 +245,7 @@ document.getElementById('prescriptionForm').addEventListener('submit', async (e)
     }
 });
 
+// Helper function to escape XML characters
 function escapeXml(unsafe) {
     return unsafe.replace(/[<>&'"]/g, function (c) {
         switch (c) {
@@ -452,11 +461,13 @@ Filled: ${data.date}`;
 </DieCutLabel>`;
 }
 
-// initialize Dymo Label Framework
+// Initialize Dymo Label Framework
 let dymoLabelFramework = null;
 
+// Initialize Dymo when page loads
 async function initializeDymo() {
     try {
+        // Check if Dymo Label Framework is available
         if (typeof dymo !== 'undefined') {
             dymoLabelFramework = dymo.label.framework;
             console.log('Dymo Label Framework initialized');
@@ -471,6 +482,7 @@ async function initializeDymo() {
     }
 }
 
+// Check for available Dymo printers
 async function getDymoPrinters() {
     try {
         if (!dymoLabelFramework) return [];
@@ -482,6 +494,38 @@ async function getDymoPrinters() {
     }
 }
 
+// Update printer status display
+async function updatePrinterStatus() {
+    const statusDiv = document.getElementById('dymoStatus');
+    const printerInfo = document.getElementById('printerInfo');
+    
+    if (!statusDiv || !printerInfo) return; // Elements don't exist on this page
+    
+    try {
+        const printers = await getDymoPrinters();
+        if (printers.length > 0) {
+            statusDiv.style.display = 'block';
+            printerInfo.innerHTML = `
+                <p style="color: green;"><strong>✓ Dymo printer detected:</strong> ${printers[0].name}</p>
+                <p style="font-size: 0.9em; color: #666;">Labels will print directly to this printer</p>
+            `;
+        } else {
+            statusDiv.style.display = 'block';
+            printerInfo.innerHTML = `
+                <p style="color: orange;"><strong>⚠ No Dymo printer detected</strong></p>
+                <p style="font-size: 0.9em; color: #666;">Labels will be downloaded as .label files. Please ensure Dymo Label software is running and printer is connected.</p>
+            `;
+        }
+    } catch (error) {
+        statusDiv.style.display = 'block';
+        printerInfo.innerHTML = `
+            <p style="color: red;"><strong>✗ Dymo SDK not available</strong></p>
+            <p style="font-size: 0.9em; color: #666;">Labels will be downloaded as .label files. Install Dymo Label software for direct printing.</p>
+        `;
+    }
+}
+
+// New Dymo-compatible label generation and printing function
 async function generateRxLabel(data, numLabels, debugMode) {
     const barcodeText = data.rxNumber.replace(/-/g, '');
     
@@ -503,9 +547,10 @@ async function generateRxLabel(data, numLabels, debugMode) {
     }
 }
 
-
+// Print directly using Dymo Label Framework
 async function printWithDymo(labelXML, numLabels) {
     try {
+        // Initialize Dymo if not already done
         if (!dymoLabelFramework) {
             const initialized = await initializeDymo();
             if (!initialized) return false;
@@ -537,6 +582,7 @@ async function printWithDymo(labelXML, numLabels) {
     }
 }
 
+// Fallback function to download label file
 function downloadLabelFile(labelXML, filename) {
     const blob = new Blob([labelXML], { type: 'text/xml' });
     const url = window.URL.createObjectURL(blob);

@@ -213,5 +213,42 @@
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <script src="firebase-data.js"></script>
     <script src="rxlabel-script.js"></script>
+
+    <script>
+        // init dymo
+        window.addEventListener('DOMContentLoaded', async () => {
+            await initializeDymo();
+            await updatePrinterStatus();
+        });
+        
+        // printer status display
+        async function updatePrinterStatus() {
+            const statusDiv = document.getElementById('dymoStatus');
+            const printerInfo = document.getElementById('printerInfo');
+            
+            try {
+                const printers = await getDymoPrinters();
+                if (printers.length > 0) {
+                    statusDiv.style.display = 'block';
+                    printerInfo.innerHTML = `
+                        <p style="color: green;"><strong>✓ Dymo printer detected:</strong> ${printers[0].name}</p>
+                        <p style="font-size: 0.9em; color: #666;">Labels will print directly to this printer</p>
+                    `;
+                } else {
+                    statusDiv.style.display = 'block';
+                    printerInfo.innerHTML = `
+                        <p style="color: orange;"><strong>⚠ No Dymo printer detected</strong></p>
+                        <p style="font-size: 0.9em; color: #666;">Labels will be downloaded as .label files. Please ensure Dymo Label software is running and printer is connected.</p>
+                    `;
+                }
+            } catch (error) {
+                statusDiv.style.display = 'block';
+                printerInfo.innerHTML = `
+                    <p style="color: red;"><strong>✗ Dymo SDK not available</strong></p>
+                    <p style="font-size: 0.9em; color: #666;">Labels will be downloaded as .label files. Install Dymo Label software for direct printing.</p>
+                `;
+            }
+        }
+    </script>
 </body>
 </html>

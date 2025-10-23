@@ -237,7 +237,6 @@ document.getElementById('prescriptionForm').addEventListener('submit', async (e)
     }
 });
 
-// Helper function to escape XML characters
 function escapeXml(unsafe) {
     return unsafe.replace(/[<>&'"]/g, function (c) {
         switch (c) {
@@ -453,42 +452,102 @@ Filled: ${data.date}`;
 </DieCutLabel>`;
 }
 
-// New Dymo-compatible label generation function
+// initialize Dymo Label Framework
+let dymoLabelFramework = null;
+
+async function initializeDymo() {
+    try {
+        if (typeof dymo !== 'undefined') {
+            dymoLabelFramework = dymo.label.framework;
+            console.log('Dymo Label Framework initialized');
+            return true;
+        } else {
+            console.warn('Dymo Label Framework not found - will fallback to download');
+            return false;
+        }
+    } catch (error) {
+        console.error('Error initializing Dymo:', error);
+        return false;
+    }
+}
+
+async function getDymoPrinters() {
+    try {
+        if (!dymoLabelFramework) return [];
+        const printers = dymoLabelFramework.getPrinters();
+        return printers.filter(printer => printer.printerType === "LabelWriterPrinter");
+    } catch (error) {
+        console.error('Error getting Dymo printers:', error);
+        return [];
+    }
+}
+
 async function generateRxLabel(data, numLabels, debugMode) {
     const barcodeText = data.rxNumber.replace(/-/g, '');
     
     // Create the label XML content
     const labelXML = generateDymoLabelXML(data, barcodeText);
     
-    // Create and download the .label file
+    // Try to print directly with Dymo, otherwise download
+    if (debugMode) {
+        // Debug mode - download the file
+        downloadLabelFile(labelXML, `rxlabel_${data.rxNumber}_${data.patient.lastName}.label`);
+    } else {
+        // Try to print directly
+        const printSuccess = await printWithDymo(labelXML, numLabels);
+        if (!printSuccess) {
+            // Fallback to download if printing fails
+            console.log('Printing failed, downloading label file instead');
+            downloadLabelFile(labelXML, `rxlabel_${data.rxNumber}_${data.patient.lastName}.label`);
+        }
+    }
+}
+
+
+async function printWithDymo(labelXML, numLabels) {
+    try {
+        if (!dymoLabelFramework) {
+            const initialized = await initializeDymo();
+            if (!initialized) return false;
+        }
+
+        // Get available printers
+        const printers = await getDymoPrinters();
+        if (printers.length === 0) {
+            alert('No Dymo printers found. Please ensure your Dymo printer is connected and the Dymo Label software is running.');
+            return false;
+        }
+
+        // Use the first available printer
+        const printerName = printers[0].name;
+        console.log(`Printing to: ${printerName}`);
+
+        // Print the specified number of labels
+        for (let i = 0; i < numLabels; i++) {
+            dymoLabelFramework.printLabel(printerName, '', labelXML, '');
+        }
+
+        console.log(`Successfully printed ${numLabels} labels to ${printerName}`);
+        return true;
+
+    } catch (error) {
+        console.error('Error printing with Dymo:', error);
+        alert('Error printing labels: ' + error.message);
+        return false;
+    }
+}
+
+function downloadLabelFile(labelXML, filename) {
     const blob = new Blob([labelXML], { type: 'text/xml' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.style.display = 'none';
     a.href = url;
-    a.download = `rxlabel_${data.rxNumber}_${data.patient.lastName}.label`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
-    
-    // If numLabels > 1, generate additional files
-    if (numLabels > 1) {
-        for (let i = 2; i <= numLabels; i++) {
-            setTimeout(() => {
-                const blob = new Blob([labelXML], { type: 'text/xml' });
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.style.display = 'none';
-                a.href = url;
-                a.download = `rxlabel_${data.rxNumber}_${data.patient.lastName}_copy${i}.label`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-            }, i * 100); // Small delay to prevent browser blocking multiple downloads
-        }
-    }
 }
 
 function resetForm() {

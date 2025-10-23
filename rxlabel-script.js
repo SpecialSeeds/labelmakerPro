@@ -237,93 +237,257 @@ document.getElementById('prescriptionForm').addEventListener('submit', async (e)
     }
 });
 
-async function generateRxLabel(data, numLabels, debugMode) {
-    const { jsPDF } = window.jspdf;
-    
-    const labelWidth = 4 * 72;
-    const labelHeight = 2.25 * 72;
-    
-    const doc = new jsPDF({
-        orientation: 'landscape',
-        unit: 'pt',
-        format: [labelWidth, labelHeight]
-    });
-
-    const barcodeImg = await generateBarcode(data.rxNumber);
-
-    for (let i = 0; i < numLabels; i++) {
-        if (i > 0) {
-            doc.addPage([labelWidth, labelHeight], 'landscape');
+// Helper function to escape XML characters
+function escapeXml(unsafe) {
+    return unsafe.replace(/[<>&'"]/g, function (c) {
+        switch (c) {
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '&': return '&amp;';
+            case '\'': return '&apos;';
+            case '"': return '&quot;';
         }
+    });
+}
 
-        let currentY = 15;
+// Generate Dymo label XML format
+function generateDymoLabelXML(data, barcodeText) {
+    const rxLabel = data.isControlled ? 'CRX#:' : 'RX#:';
+    
+    // Format the prescription text content with proper line breaks and styling
+    const pharmacyInfo = `${data.pharmacyName}
+${data.pharmacyAddress}
+${data.pharmacyPhone}`;
 
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
-        doc.text(data.pharmacyName, labelWidth / 2, currentY, { align: 'center' });
-        currentY += 10;
-        doc.setFontSize(8);
-        doc.text(data.pharmacyAddress, labelWidth / 2, currentY, { align: 'center' });
-        currentY += 15;
+    const patientInfo = `Patient: ${data.patient.firstName} ${data.patient.lastName}
+DOB: ${data.patient.dateOfBirth}
+Address: ${data.patient.address}
+Phone: ${data.patient.phone}`;
 
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(9);
-        doc.text(`Patient: ${data.patient.firstName} ${data.patient.lastName}`, 10, currentY);
-        doc.text(`DOB: ${data.patient.dateOfBirth}`, labelWidth - 80, currentY);
-        currentY += 12;
+    const drugInfo = `${data.drugName}
+${rxLabel} ${data.rxNumber}`;
 
-        doc.setFontSize(8);
-        const addressText = doc.splitTextToSize(`Address: ${data.patient.address}`, labelWidth - 100);
-        doc.text(addressText, 10, currentY);
-        doc.text(`Phone: ${data.patient.phone}`, labelWidth - 80, currentY);
-        currentY += 15;
+    const directions = `Directions: ${data.directions}`;
 
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        const drugText = doc.splitTextToSize(data.drugName, labelWidth - 90);
-        doc.text(drugText, 10, currentY);
-        
-        const rxLabel = data.isControlled ? 'CRX#:' : 'RX#:';
-        const rxText = `${rxLabel} ${data.rxNumber}`;
-        const rxWidth = doc.getTextWidth(rxText);
-        doc.text(rxText, labelWidth - rxWidth - 10, currentY);
-        currentY += 15;
+    const additionalInfo = `Mfr: ${data.manufacturer}
+NDC: ${data.ndc}
+Prescriber: ${data.prescriber}
+QTY: ${data.quantity}  Days Supply: ${data.daysSupply}  Refills: ${data.refills}
+Allergies: ${data.patient.allergies}
+Filled: ${data.date}`;
 
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        const directions = doc.splitTextToSize(data.directions, labelWidth - 90);
-        doc.text(directions, 10, currentY);
-        
-        const barcodeWidth = 70;
-        const barcodeHeight = 20;
-        const barcodeX = labelWidth - barcodeWidth - 10;
-        const barcodeY = currentY - 10;
-        doc.addImage(barcodeImg, 'PNG', barcodeX, barcodeY, barcodeWidth, barcodeHeight);
-        
-        currentY += (directions.length * 10) + 10;
+    return `<?xml version="1.0" encoding="utf-8"?>
+<DieCutLabel Version="8.0" Units="twips" MediaType="Default">
+    <PaperOrientation>Landscape</PaperOrientation>
+    <Id>RxLabel</Id>
+    <IsOutlined>false</IsOutlined>
+    <PaperName>30252 Address</PaperName>
+    <DrawCommands>
+        <RoundRectangle X="0" Y="0" Width="5760" Height="3240" Rx="270" Ry="270" />
+    </DrawCommands>
+    <ObjectInfo>
+        <TextObject>
+            <n>PharmacyHeader</n>
+            <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+            <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
+            <LinkedObjectName />
+            <Rotation>Rotation0</Rotation>
+            <IsMirrored>False</IsMirrored>
+            <IsVariable>False</IsVariable>
+            <GroupID>-1</GroupID>
+            <IsOutlined>False</IsOutlined>
+            <HorizontalAlignment>Center</HorizontalAlignment>
+            <VerticalAlignment>Top</VerticalAlignment>
+            <TextFitMode>ShrinkToFit</TextFitMode>
+            <UseFullFontHeight>True</UseFullFontHeight>
+            <Verticalized>False</Verticalized>
+            <StyledText>
+                <Element>
+                    <String xml:space="preserve">${escapeXml(pharmacyInfo)}</String>
+                    <Attributes>
+                        <Font Family="Arial" Size="10" Bold="True" Italic="False" Underline="False" Strikeout="False" />
+                        <ForeColor Alpha="255" Red="0" Green="0" Blue="0" HueScale="100" />
+                    </Attributes>
+                </Element>
+            </StyledText>
+        </TextObject>
+        <Bounds X="144" Y="144" Width="5472" Height="432" />
+    </ObjectInfo>
+    <ObjectInfo>
+        <TextObject>
+            <n>PatientInfo</n>
+            <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+            <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
+            <LinkedObjectName />
+            <Rotation>Rotation0</Rotation>
+            <IsMirrored>False</IsMirrored>
+            <IsVariable>False</IsVariable>
+            <GroupID>-1</GroupID>
+            <IsOutlined>False</IsOutlined>
+            <HorizontalAlignment>Left</HorizontalAlignment>
+            <VerticalAlignment>Top</VerticalAlignment>
+            <TextFitMode>ShrinkToFit</TextFitMode>
+            <UseFullFontHeight>True</UseFullFontHeight>
+            <Verticalized>False</Verticalized>
+            <StyledText>
+                <Element>
+                    <String xml:space="preserve">${escapeXml(patientInfo)}</String>
+                    <Attributes>
+                        <Font Family="Arial" Size="8" Bold="False" Italic="False" Underline="False" Strikeout="False" />
+                        <ForeColor Alpha="255" Red="0" Green="0" Blue="0" HueScale="100" />
+                    </Attributes>
+                </Element>
+            </StyledText>
+        </TextObject>
+        <Bounds X="144" Y="576" Width="3600" Height="432" />
+    </ObjectInfo>
+    <ObjectInfo>
+        <TextObject>
+            <n>DrugInfo</n>
+            <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+            <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
+            <LinkedObjectName />
+            <Rotation>Rotation0</Rotation>
+            <IsMirrored>False</IsMirrored>
+            <IsVariable>False</IsVariable>
+            <GroupID>-1</GroupID>
+            <IsOutlined>False</IsOutlined>
+            <HorizontalAlignment>Left</HorizontalAlignment>
+            <VerticalAlignment>Top</VerticalAlignment>
+            <TextFitMode>ShrinkToFit</TextFitMode>
+            <UseFullFontHeight>True</UseFullFontHeight>
+            <Verticalized>False</Verticalized>
+            <StyledText>
+                <Element>
+                    <String xml:space="preserve">${escapeXml(drugInfo)}</String>
+                    <Attributes>
+                        <Font Family="Arial" Size="12" Bold="True" Italic="False" Underline="False" Strikeout="False" />
+                        <ForeColor Alpha="255" Red="0" Green="0" Blue="0" HueScale="100" />
+                    </Attributes>
+                </Element>
+            </StyledText>
+        </TextObject>
+        <Bounds X="144" Y="1008" Width="3600" Height="432" />
+    </ObjectInfo>
+    <ObjectInfo>
+        <TextObject>
+            <n>Directions</n>
+            <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+            <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
+            <LinkedObjectName />
+            <Rotation>Rotation0</Rotation>
+            <IsMirrored>False</IsMirrored>
+            <IsVariable>False</IsVariable>
+            <GroupID>-1</GroupID>
+            <IsOutlined>False</IsOutlined>
+            <HorizontalAlignment>Left</HorizontalAlignment>
+            <VerticalAlignment>Top</VerticalAlignment>
+            <TextFitMode>ShrinkToFit</TextFitMode>
+            <UseFullFontHeight>True</UseFullFontHeight>
+            <Verticalized>False</Verticalized>
+            <StyledText>
+                <Element>
+                    <String xml:space="preserve">${escapeXml(directions)}</String>
+                    <Attributes>
+                        <Font Family="Arial" Size="10" Bold="False" Italic="False" Underline="False" Strikeout="False" />
+                        <ForeColor Alpha="255" Red="0" Green="0" Blue="0" HueScale="100" />
+                    </Attributes>
+                </Element>
+            </StyledText>
+        </TextObject>
+        <Bounds X="144" Y="1440" Width="3600" Height="432" />
+    </ObjectInfo>
+    <ObjectInfo>
+        <TextObject>
+            <n>AdditionalInfo</n>
+            <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+            <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
+            <LinkedObjectName />
+            <Rotation>Rotation0</Rotation>
+            <IsMirrored>False</IsMirrored>
+            <IsVariable>False</IsVariable>
+            <GroupID>-1</GroupID>
+            <IsOutlined>False</IsOutlined>
+            <HorizontalAlignment>Left</HorizontalAlignment>
+            <VerticalAlignment>Top</VerticalAlignment>
+            <TextFitMode>ShrinkToFit</TextFitMode>
+            <UseFullFontHeight>True</UseFullFontHeight>
+            <Verticalized>False</Verticalized>
+            <StyledText>
+                <Element>
+                    <String xml:space="preserve">${escapeXml(additionalInfo)}</String>
+                    <Attributes>
+                        <Font Family="Arial" Size="7" Bold="False" Italic="False" Underline="False" Strikeout="False" />
+                        <ForeColor Alpha="255" Red="0" Green="0" Blue="0" HueScale="100" />
+                    </Attributes>
+                </Element>
+            </StyledText>
+        </TextObject>
+        <Bounds X="144" Y="1872" Width="3600" Height="1224" />
+    </ObjectInfo>
+    <ObjectInfo>
+        <BarcodeObject>
+            <n>RxBarcode</n>
+            <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
+            <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
+            <LinkedObjectName />
+            <Rotation>Rotation0</Rotation>
+            <IsMirrored>False</IsMirrored>
+            <IsVariable>False</IsVariable>
+            <GroupID>-1</GroupID>
+            <IsOutlined>False</IsOutlined>
+            <Text>${escapeXml(barcodeText)}</Text>
+            <Type>Code128Auto</Type>
+            <ShowText>True</ShowText>
+            <CheckSum>False</CheckSum>
+            <TextPosition>Bottom</TextPosition>
+            <TextFont Family="Arial" Size="8" Bold="False" Italic="False" Underline="False" Strikeout="False" />
+            <CheckSumFont Family="Arial" Size="8" Bold="False" Italic="False" Underline="False" Strikeout="False" />
+            <TextColor Alpha="255" Red="0" Green="0" Blue="0" HueScale="100" />
+            <CheckSumColor Alpha="255" Red="0" Green="0" Blue="0" HueScale="100" />
+            <BarHeight>576</BarHeight>
+            <BarWidth>2</BarWidth>
+        </BarcodeObject>
+        <Bounds X="3888" Y="1440" Width="1584" Height="720" />
+    </ObjectInfo>
+</DieCutLabel>`;
+}
 
-        doc.setFontSize(7);
-        doc.text(`Mfr: ${data.manufacturer}`, 10, currentY);
-        currentY += 10;
-        
-        doc.text(`NDC: ${data.ndc}`, 10, currentY);
-        currentY += 10;
-
-        doc.text(`Prescriber: ${data.prescriber}`, 10, currentY);
-        
-        doc.text(`QTY: ${data.quantity}`, labelWidth - 70, currentY - 20);
-        doc.text(`Days: ${data.daysSupply}`, labelWidth - 70, currentY - 10);
-        doc.text(`Refills: ${data.refills}`, labelWidth - 70, currentY);
-        
-        currentY += 10;
-        doc.text(`Filled: ${data.date}`, 10, currentY);
-    }
-
-    if (debugMode) {
-        doc.save(`rxlabel_${data.rxNumber}_${data.patient.lastName}.pdf`);
-    } else {
-        doc.autoPrint();
-        window.open(doc.output('bloburl'), '_blank');
+// New Dymo-compatible label generation function
+async function generateRxLabel(data, numLabels, debugMode) {
+    const barcodeText = data.rxNumber.replace(/-/g, '');
+    
+    // Create the label XML content
+    const labelXML = generateDymoLabelXML(data, barcodeText);
+    
+    // Create and download the .label file
+    const blob = new Blob([labelXML], { type: 'text/xml' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = `rxlabel_${data.rxNumber}_${data.patient.lastName}.label`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+    
+    // If numLabels > 1, generate additional files
+    if (numLabels > 1) {
+        for (let i = 2; i <= numLabels; i++) {
+            setTimeout(() => {
+                const blob = new Blob([labelXML], { type: 'text/xml' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = `rxlabel_${data.rxNumber}_${data.patient.lastName}_copy${i}.label`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            }, i * 100); // Small delay to prevent browser blocking multiple downloads
+        }
     }
 }
 

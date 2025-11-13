@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Stock - Inventory Management</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h2>menu</h2>
+        </div>
+        <ul class="sidebar-nav">
+            <li><a href="index.html">home</a></li>
+            <li><a href="medidose.html">medidose labels</a></li>
+            <li><a href="rxlabel.html">rx labels</a></li>
+            <li><a href="inventory.html" class="active">inventory</a></li>
+            <li><a href="settings.html">settings</a></li>
+        </ul>
+    </nav>
+
+    <div class="main-content">
+        <div class="container">
+            <h1 id="page-title">Add Stock</h1>
+            
+            <div class="section">
+                <a href="inventory.html" class="secondary-btn" style="margin-bottom: 20px;">← Back to Inventory</a>
+                
+                <form id="stock-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="brandName">Brand Name</label>
+                            <input type="text" id="brandName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="genericName">Generic Name</label>
+                            <input type="text" id="genericName" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="shelfNumber">Shelf Number</label>
+                            <select id="shelfNumber" required>
+                                <option value="">Select shelf</option>
+                                <option value="1">Shelf 1</option>
+                                <option value="2">Shelf 2</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="ndc">NDC</label>
+                            <input type="text" id="ndc" placeholder="XXXXX-XXXX-XX" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="amount">Current Amount</label>
+                            <input type="number" id="amount" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="parLevel">Par Level</label>
+                            <input type="number" id="parLevel" min="0" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="expiration">Expiration Date</label>
+                            <input type="date" id="expiration" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="lot">Lot Number</label>
+                            <input type="text" id="lot">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="strength">Strength</label>
+                            <input type="text" id="strength" placeholder="e.g., 10mg">
+                        </div>
+                        <div class="form-group">
+                            <label for="dosageForm">Dosage Form</label>
+                            <input type="text" id="dosageForm" placeholder="e.g., tablets, capsules">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="notes">Notes</label>
+                        <textarea id="notes" rows="3" placeholder="Additional notes..."></textarea>
+                    </div>
+
+                    <button type="submit" class="generate-btn" id="submit-btn">Add to Inventory</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="firebase-data.js"></script>
+    <script src="inventory-script.js"></script>
+
+    <script>
+        let isEditMode = false;
+        let editItemId = null;
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const editId = urlParams.get('edit');
+            
+            if (editId) {
+                isEditMode = true;
+                editItemId = editId;
+                document.getElementById('page-title').textContent = 'Edit Stock';
+                document.getElementById('submit-btn').textContent = 'Update Inventory';
+                
+                await loadItemForEdit(editId);
+            }
+        });
+
+        async function loadItemForEdit(itemId) {
+            try {
+                const doc = await inventoryDB.inventoryRef.doc(itemId).get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    document.getElementById('brandName').value = data.brandName || '';
+                    document.getElementById('genericName').value = data.genericName || '';
+                    document.getElementById('shelfNumber').value = data.shelfNumber || '';
+                    document.getElementById('ndc').value = data.ndc || '';
+                    document.getElementById('amount').value = data.amount || '';
+                    document.getElementById('parLevel').value = data.parLevel || '';
+                    document.getElementById('expiration').value = data.expiration || '';
+                    document.getElementById('lot').value = data.lot || '';
+                    document.getElementById('strength').value = data.strength || '';
+                    document.getElementById('dosageForm').value = data.dosageForm || '';
+                    document.getElementById('notes').value = data.notes || '';
+                } else {
+                    alert('Item not found');
+                    window.location.href = 'inventory.html';
+                }
+            } catch (error) {
+                console.error('Error loading item:', error);
+                alert('Error loading item data');
+                window.location.href = 'inventory.html';
+            }
+        }
+
+        document.getElementById('stock-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const submitBtn = document.getElementById('submit-btn');
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = isEditMode ? 'Updating...' : 'Adding...';
+            submitBtn.disabled = true;
+
+            try {
+                const formData = {
+                    brandName: document.getElementById('brandName').value.trim(),
+                    genericName: document.getElementById('genericName').value.trim(),
+                    shelfNumber: document.getElementById('shelfNumber').value,
+                    ndc: document.getElementById('ndc').value.trim(),
+                    amount: parseInt(document.getElementById('amount').value),
+                    parLevel: parseInt(document.getElementById('parLevel').value),
+                    expiration: document.getElementById('expiration').value,
+                    lot: document.getElementById('lot').value.trim(),
+                    strength: document.getElementById('strength').value.trim(),
+                    dosageForm: document.getElementById('dosageForm').value.trim(),
+                    notes: document.getElementById('notes').value.trim()
+                };
+
+                if (isEditMode) {
+                    await inventoryDB.updateInventoryItem(editItemId, formData);
+                    alert('Inventory item updated successfully!');
+                } else {
+                    await inventoryDB.addInventoryItem(formData);
+                    alert('Stock added successfully!');
+                    document.getElementById('stock-form').reset();
+                }
+                
+                setTimeout(() => {
+                    window.location.href = 'inventory.html';
+                }, 1000);
+
+            } catch (error) {
+                console.error('Error saving stock:', error);
+                alert('Error saving stock: ' + error.message);
+            } finally {
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+    <script src="footer.js"></script>
+</body>
+</html>

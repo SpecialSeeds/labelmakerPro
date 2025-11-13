@@ -184,3 +184,39 @@ class SettingsManager {
 
 settingsManager = new SettingsManager();
 patientDB = new PatientDatabase();
+
+async function initializeInventoryCollections() {
+    try {
+        const inventorySnapshot = await db.collection('inventory').limit(1).get();
+        if (inventorySnapshot.empty) {
+            await db.collection('inventory').add({
+                brandName: 'Sample Drug',
+                genericName: 'sample generic',
+                shelfNumber: '1',
+                ndc: '12345-678-90',
+                amount: 100,
+                parLevel: 50,
+                expiration: '2025-12-31',
+                lot: 'ABC123',
+                strength: '10mg',
+                dosageForm: 'tablets',
+                notes: 'Sample inventory item for initialization',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+            });
+            console.log('Inventory collection initialized with sample data');
+        }
+        
+        const reportsSnapshot = await db.collection('reports').limit(1).get();
+        const substitutionsSnapshot = await db.collection('substitutions').limit(1).get();
+        const expiredRecalledSnapshot = await db.collection('expired_recalled').limit(1).get();
+        
+        console.log('All inventory collections are ready');
+    } catch (error) {
+        console.error('Error initializing inventory collections:', error);
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('DOMContentLoaded', initializeInventoryCollections);
+}

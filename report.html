@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Report - Inventory Management</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .report-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #E2E8F0;
+        }
+
+        .report-tab {
+            padding: 12px 24px;
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            font-weight: 500;
+            color: #718096;
+            transition: all 0.2s;
+        }
+
+        .report-tab.active {
+            color: #6B46C1;
+            border-bottom-color: #6B46C1;
+        }
+
+        .report-tab:hover {
+            color: #553C9A;
+        }
+
+        .report-content {
+            display: none;
+        }
+
+        .report-content.active {
+            display: block;
+        }
+
+        .report-form {
+            background: #F7FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .report-list {
+            background: white;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .report-item {
+            border-bottom: 1px solid #E2E8F0;
+            padding: 15px 0;
+        }
+
+        .report-item:last-child {
+            border-bottom: none;
+        }
+
+        .report-item h4 {
+            margin-top: 0;
+            margin-bottom: 8px;
+            color: #2D3748;
+        }
+
+        .report-item p {
+            margin: 4px 0;
+            color: #718096;
+            font-size: 14px;
+        }
+
+        .report-status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .status-pending { background: #FED7D7; color: #C53030; }
+        .status-resolved { background: #C6F6D5; color: #2F855A; }
+        .status-investigating { background: #BEE3F8; color: #2B6CB0; }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h2>menu</h2>
+        </div>
+        <ul class="sidebar-nav">
+            <li><a href="index.html">home</a></li>
+            <li><a href="medidose.html">medidose labels</a></li>
+            <li><a href="rxlabel.html">rx labels</a></li>
+            <li><a href="inventory.html" class="active">inventory</a></li>
+            <li><a href="settings.html">settings</a></li>
+        </ul>
+    </nav>
+
+    <div class="main-content">
+        <div class="container">
+            <h1>Report</h1>
+            
+            <div class="section">
+                <a href="inventory.html" class="secondary-btn" style="margin-bottom: 20px;">← Back to Inventory</a>
+                
+                <!-- Report Type Tabs -->
+                <div class="report-tabs">
+                    <button class="report-tab active" onclick="showReportTab('discrepancy')">Discrepancy Report</button>
+                    <button class="report-tab" onclick="showReportTab('expired')">Expired Items</button>
+                    <button class="report-tab" onclick="showReportTab('recall')">Drug Recall</button>
+                </div>
+
+                <!-- Discrepancy Report -->
+                <div id="discrepancy-content" class="report-content active">
+                    <div class="report-form">
+                        <h3>Report Inventory Discrepancy</h3>
+                        <form id="discrepancy-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="discrepancy-item">Select Item</label>
+                                    <select id="discrepancy-item" required>
+                                        <option value="">Select inventory item...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="expected-count">Expected Count</label>
+                                    <input type="number" id="expected-count" readonly>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="actual-count">Actual Count</label>
+                                    <input type="number" id="actual-count" min="0" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="discrepancy-amount">Discrepancy</label>
+                                    <input type="text" id="discrepancy-amount" readonly>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="discrepancy-reason">Reason for Discrepancy</label>
+                                <select id="discrepancy-reason" required>
+                                    <option value="">Select reason...</option>
+                                    <option value="damaged">Damaged goods</option>
+                                    <option value="theft">Possible theft</option>
+                                    <option value="expired">Expired items removed</option>
+                                    <option value="recalled">Recalled items removed</option>
+                                    <option value="dispensing_error">Dispensing error</option>
+                                    <option value="counting_error">Counting error</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="discrepancy-notes">Additional Notes</label>
+                                <textarea id="discrepancy-notes" rows="3" placeholder="Describe the discrepancy..."></textarea>
+                            </div>
+
+                            <button type="submit" class="generate-btn">Submit Discrepancy Report</button>
+                        </form>
+                    </div>
+
+                    <div class="report-list">
+                        <h3>Recent Discrepancy Reports</h3>
+                        <div id="discrepancy-reports">
+                            <div class="loading">Loading reports...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Expired Items Report -->
+                <div id="expired-content" class="report-content">
+                    <div class="report-form">
+                        <h3>Report Expired Items</h3>
+                        <form id="expired-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="expired-item">Select Item</label>
+                                    <select id="expired-item" required>
+                                        <option value="">Select inventory item...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="expired-lot">Lot Number</label>
+                                    <input type="text" id="expired-lot" required>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="expired-date">Expiration Date</label>
+                                    <input type="date" id="expired-date" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="expired-quantity">Quantity Expired</label>
+                                    <input type="number" id="expired-quantity" min="1" required>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="disposal-method">Disposal Method</label>
+                                <select id="disposal-method" required>
+                                    <option value="">Select disposal method...</option>
+                                    <option value="return_manufacturer">Return to manufacturer</option>
+                                    <option value="reverse_distributor">Reverse distributor</option>
+                                    <option value="hazardous_waste">Hazardous waste disposal</option>
+                                    <option value="incineration">Incineration</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="expired-notes">Additional Notes</label>
+                                <textarea id="expired-notes" rows="3" placeholder="Additional details..."></textarea>
+                            </div>
+
+                            <button type="submit" class="generate-btn">Report Expired Items</button>
+                        </form>
+                    </div>
+
+                    <div class="report-list">
+                        <h3>Expired Items Reports</h3>
+                        <div id="expired-reports">
+                            <div class="loading">Loading reports...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Drug Recall Report -->
+                <div id="recall-content" class="report-content">
+                    <div class="report-form">
+                        <h3>Report Drug Recall</h3>
+                        <form id="recall-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="recall-item">Select Item</label>
+                                    <select id="recall-item" required>
+                                        <option value="">Select inventory item...</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="recall-lot">Affected Lot Number</label>
+                                    <input type="text" id="recall-lot" required>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="recall-class">Recall Class</label>
+                                    <select id="recall-class" required>
+                                        <option value="">Select recall class...</option>
+                                        <option value="class1">Class I - Life threatening</option>
+                                        <option value="class2">Class II - Serious adverse effects</option>
+                                        <option value="class3">Class III - Unlikely to cause adverse effects</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="recall-quantity">Quantity on Hand</label>
+                                    <input type="number" id="recall-quantity" min="0" required>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="recall-source">Recall Source</label>
+                                <select id="recall-source" required>
+                                    <option value="">Select source...</option>
+                                    <option value="fda">FDA</option>
+                                    <option value="manufacturer">Manufacturer</option>
+                                    <option value="distributor">Distributor</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="recall-reason">Reason for Recall</label>
+                                <textarea id="recall-reason" rows="2" required placeholder="Describe the reason for recall..."></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="recall-notes">Additional Notes</label>
+                                <textarea id="recall-notes" rows="3" placeholder="Actions taken, disposal method, etc..."></textarea>
+                            </div>
+
+                            <button type="submit" class="generate-btn">Report Drug Recall</button>
+                        </form>
+                    </div>
+
+                    <div class="report-list">
+                        <h3>Drug Recall Reports</h3>
+                        <div id="recall-reports">
+                            <div class="loading">Loading reports...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="firebase-data.js"></script>
+    <script src="inventory-script.js"></script>
+
+    <script>
+        let inventoryItems = [];
+
+        // Load data when page loads
+        window.addEventListener('DOMContentLoaded', async () => {
+            await loadInventoryItems();
+            await loadReports();
+        });
+
+        async function loadInventoryItems() {
+            try {
+                inventoryItems = await inventoryDB.getAllInventory(100);
+                populateItemSelects();
+            } catch (error) {
+                console.error('Error loading inventory items:', error);
+            }
+        }
+
+        function populateItemSelects() {
+            const selects = ['discrepancy-item', 'expired-item', 'recall-item'];
+            
+            selects.forEach(selectId => {
+                const select = document.getElementById(selectId);
+                select.innerHTML = '<option value="">Select inventory item...</option>';
+                
+                inventoryItems.forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = item.id;
+                    option.textContent = `${item.brandName} (${item.ndc}) - Shelf ${item.shelfNumber}`;
+                    option.dataset.amount = item.amount;
+                    select.appendChild(option);
+                });
+            });
+        }
+
+
+        function showReportTab(tabName) {
+            document.querySelectorAll('.report-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            document.querySelectorAll('.report-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            document.getElementById(tabName + '-content').classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        document.getElementById('discrepancy-item').addEventListener('change', function() {
+            const selectedOption = this.selectedOptions[0];
+            if (selectedOption.value) {
+                document.getElementById('expected-count').value = selectedOption.dataset.amount || 0;
+                calculateDiscrepancy();
+            } else {
+                document.getElementById('expected-count').value = '';
+                document.getElementById('discrepancy-amount').value = '';
+            }
+        });
+
+        document.getElementById('actual-count').addEventListener('input', calculateDiscrepancy);
+
+        function calculateDiscrepancy() {
+            const expected = parseInt(document.getElementById('expected-count').value) || 0;
+            const actual = parseInt(document.getElementById('actual-count').value) || 0;
+            const discrepancy = actual - expected;
+            
+            document.getElementById('discrepancy-amount').value = discrepancy;
+            document.getElementById('discrepancy-amount').style.color = discrepancy === 0 ? 'green' : 'red';
+        }
+
+        document.getElementById('discrepancy-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const itemSelect = document.getElementById('discrepancy-item');
+            const selectedItem = inventoryItems.find(item => item.id === itemSelect.value);
+            
+            const reportData = {
+                type: 'discrepancy',
+                itemId: itemSelect.value,
+                brandName: selectedItem.brandName,
+                ndc: selectedItem.ndc,
+                shelfNumber: selectedItem.shelfNumber,
+                expectedCount: parseInt(document.getElementById('expected-count').value),
+                actualCount: parseInt(document.getElementById('actual-count').value),
+                discrepancy: parseInt(document.getElementById('discrepancy-amount').value),
+                reason: document.getElementById('discrepancy-reason').value,
+                notes: document.getElementById('discrepancy-notes').value,
+                reportedBy: 'system', // Could be user-specific
+                status: 'pending',
+                createdAt: new Date().toISOString()
+            };
+
+            await submitReport(reportData, 'discrepancy-form');
+        });
+
+        document.getElementById('expired-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const itemSelect = document.getElementById('expired-item');
+            const selectedItem = inventoryItems.find(item => item.id === itemSelect.value);
+            
+            const reportData = {
+                type: 'expired',
+                itemId: itemSelect.value,
+                brandName: selectedItem.brandName,
+                ndc: selectedItem.ndc,
+                shelfNumber: selectedItem.shelfNumber,
+                lot: document.getElementById('expired-lot').value,
+                expiration: document.getElementById('expired-date').value,
+                quantity: parseInt(document.getElementById('expired-quantity').value),
+                disposalMethod: document.getElementById('disposal-method').value,
+                notes: document.getElementById('expired-notes').value,
+                reportedBy: 'system',
+                status: 'pending',
+                createdAt: new Date().toISOString()
+            };
+
+            await submitReport(reportData, 'expired-form');
+        });
+
+        document.getElementById('recall-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const itemSelect = document.getElementById('recall-item');
+            const selectedItem = inventoryItems.find(item => item.id === itemSelect.value);
+            
+            const reportData = {
+                type: 'recall',
+                itemId: itemSelect.value,
+                brandName: selectedItem.brandName,
+                ndc: selectedItem.ndc,
+                shelfNumber: selectedItem.shelfNumber,
+                lot: document.getElementById('recall-lot').value,
+                recallClass: document.getElementById('recall-class').value,
+                quantity: parseInt(document.getElementById('recall-quantity').value),
+                source: document.getElementById('recall-source').value,
+                reason: document.getElementById('recall-reason').value,
+                notes: document.getElementById('recall-notes').value,
+                reportedBy: 'system',
+                status: 'investigating',
+                createdAt: new Date().toISOString()
+            };
+
+            await submitReport(reportData, 'recall-form');
+        });
+
+        async function submitReport(reportData, formId) {
+            const submitBtn = document.querySelector(`#${formId} button[type="submit"]`);
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = 'Submitting...';
+            submitBtn.disabled = true;
+
+            try {
+                await db.collection('reports').add(reportData);
+                alert('Report submitted successfully!');
+                document.getElementById(formId).reset();
+                await loadReports(); // Refresh the reports
+            } catch (error) {
+                console.error('Error submitting report:', error);
+                alert('Error submitting report: ' + error.message);
+            } finally {
+                submitBtn.textContent = originalText;
+                submitBtn.disabled = false;
+            }
+        }
+
+        async function loadReports() {
+            try {
+                const reportsSnapshot = await db.collection('reports')
+                    .orderBy('createdAt', 'desc')
+                    .limit(10)
+                    .get();
+
+                const reports = reportsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                
+                displayReports(reports.filter(r => r.type === 'discrepancy'), 'discrepancy-reports');
+                displayReports(reports.filter(r => r.type === 'expired'), 'expired-reports');
+                displayReports(reports.filter(r => r.type === 'recall'), 'recall-reports');
+            } catch (error) {
+                console.error('Error loading reports:', error);
+            }
+        }
+
+        function displayReports(reports, containerId) {
+            const container = document.getElementById(containerId);
+            
+            if (reports.length === 0) {
+                container.innerHTML = '<div class="no-data">No reports found</div>';
+                return;
+            }
+
+            container.innerHTML = reports.map(report => `
+                <div class="report-item">
+                    <h4>${report.brandName} (${report.ndc})</h4>
+                    <p><strong>Shelf:</strong> ${report.shelfNumber} | <strong>Date:</strong> ${formatDate(report.createdAt)}</p>
+                    ${report.discrepancy !== undefined ? `<p><strong>Discrepancy:</strong> ${report.discrepancy} | <strong>Reason:</strong> ${report.reason}</p>` : ''}
+                    ${report.quantity !== undefined ? `<p><strong>Quantity:</strong> ${report.quantity}</p>` : ''}
+                    ${report.lot ? `<p><strong>Lot:</strong> ${report.lot}</p>` : ''}
+                    ${report.notes ? `<p><strong>Notes:</strong> ${report.notes}</p>` : ''}
+                    <span class="report-status status-${report.status}">${report.status.toUpperCase()}</span>
+                </div>
+            `).join('');
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            try {
+                return new Date(dateString).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch (error) {
+                return dateString;
+            }
+        }
+    </script>
+    <script src="footer.js"></script>
+</body>
+</html>

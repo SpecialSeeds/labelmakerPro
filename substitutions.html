@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Export - Inventory Management</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .export-option {
+            background: #F7FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            padding: 25px;
+            margin-bottom: 20px;
+            transition: all 0.2s;
+        }
+
+        .export-option:hover {
+            border-color: #B794F4;
+            background: #FAF5FF;
+        }
+
+        .export-option h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #553C9A;
+            font-size: 18px;
+        }
+
+        .export-option p {
+            color: #718096;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+
+        .export-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .format-select {
+            width: 120px;
+        }
+
+        .date-range {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 10px;
+            align-items: center;
+            margin: 15px 0;
+        }
+
+        .export-preview {
+            background: white;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .preview-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        .preview-table th,
+        .preview-table td {
+            border: 1px solid #E2E8F0;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .preview-table th {
+            background: #F7FAFC;
+            font-weight: 600;
+        }
+
+        .export-summary {
+            background: #EDF2F7;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+
+        .loading-content {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            min-width: 300px;
+        }
+
+        .loading-spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #E2E8F0;
+            border-top: 4px solid #6B46C1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p>Preparing export...</p>
+        </div>
+    </div>
+
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h2>menu</h2>
+        </div>
+        <ul class="sidebar-nav">
+            <li><a href="index.html">home</a></li>
+            <li><a href="medidose.html">medidose labels</a></li>
+            <li><a href="rxlabel.html">rx labels</a></li>
+            <li><a href="inventory.html" class="active">inventory</a></li>
+            <li><a href="settings.html">settings</a></li>
+        </ul>
+    </nav>
+
+    <div class="main-content">
+        <div class="container">
+            <h1>Export Data</h1>
+            
+            <div class="section">
+                <a href="inventory.html" class="secondary-btn" style="margin-bottom: 20px;">← Back to Inventory</a>
+                
+                <!-- Export Options -->
+                <div class="export-option">
+                    <h3>Current Inventory</h3>
+                    <p>Export all current inventory items with stock levels, locations, and expiration dates</p>
+                    
+                    <div class="export-controls">
+                        <select id="inventory-format" class="format-select">
+                            <option value="csv">CSV</option>
+                            <option value="excel">Excel</option>
+                            <option value="pdf">PDF</option>
+                        </select>
+                        
+                        <button class="generate-btn" onclick="exportInventory()">Export Inventory</button>
+                        <button class="secondary-btn" onclick="previewInventory()">Preview</button>
+                    </div>
+
+                    <div class="form-row" style="margin-top: 15px;">
+                        <div class="form-group">
+                            <label>Include Low Stock Only</label>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="inventory-low-stock">
+                                <label for="inventory-low-stock">Only items below par level</label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Shelf Filter</label>
+                            <select id="inventory-shelf">
+                                <option value="">All Shelves</option>
+                                <option value="1">Shelf 1</option>
+                                <option value="2">Shelf 2</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="export-option">
+                    <h3>Expired & Recalled Items</h3>
+                    <p>Export items that are expired or have been recalled</p>
+                    
+                    <div class="export-controls">
+                        <select id="expired-format" class="format-select">
+                            <option value="csv">CSV</option>
+                            <option value="excel">Excel</option>
+                            <option value="pdf">PDF</option>
+                        </select>
+                        
+                        <button class="generate-btn" onclick="exportExpired()">Export Expired/Recalled</button>
+                        <button class="secondary-btn" onclick="previewExpired()">Preview</button>
+                    </div>
+                </div>
+
+                <div class="export-option">
+                    <h3>Reports & Analytics</h3>
+                    <p>Export discrepancy reports, cycle count results, and substitution records</p>
+                    
+                    <div class="date-range">
+                        <input type="date" id="reports-start-date">
+                        <span>to</span>
+                        <input type="date" id="reports-end-date">
+                    </div>
+                    
+                    <div class="export-controls">
+                        <select id="reports-format" class="format-select">
+                            <option value="csv">CSV</option>
+                            <option value="excel">Excel</option>
+                            <option value="pdf">PDF</option>
+                        </select>
+                        
+                        <button class="generate-btn" onclick="exportReports()">Export Reports</button>
+                        <button class="secondary-btn" onclick="previewReports()">Preview</button>
+                    </div>
+
+                    <div class="form-row" style="margin-top: 15px;">
+                        <div class="form-group">
+                            <label>Report Type</label>
+                            <select id="report-type">
+                                <option value="all">All Reports</option>
+                                <option value="discrepancy">Discrepancy Only</option>
+                                <option value="expired">Expired Only</option>
+                                <option value="recall">Recall Only</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="export-option">
+                    <h3>Drug Substitutions</h3>
+                    <p>Export current drug substitution mappings and conversion ratios</p>
+                    
+                    <div class="export-controls">
+                        <select id="substitutions-format" class="format-select">
+                            <option value="csv">CSV</option>
+                            <option value="excel">Excel</option>
+                            <option value="pdf">PDF</option>
+                        </select>
+                        
+                        <button class="generate-btn" onclick="exportSubstitutions()">Export Substitutions</button>
+                        <button class="secondary-btn" onclick="previewSubstitutions()">Preview</button>
+                    </div>
+
+                    <div class="form-row" style="margin-top: 15px;">
+                        <div class="form-group">
+                            <label>Active Only</label>
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="substitutions-active-only" checked>
+                                <label for="substitutions-active-only">Only active substitutions</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="export-preview" class="export-preview" style="display: none;">
+                    <h3>Export Preview</h3>
+                    <div id="export-summary" class="export-summary"></div>
+                    <div id="preview-content"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="firebase-data.js"></script>
+    <script src="inventory-script.js"></script>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            const today = new Date().toISOString().split('T')[0];
+            const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            
+            document.getElementById('reports-start-date').value = thirtyDaysAgo;
+            document.getElementById('reports-end-date').value = today;
+        });
+
+        async function exportInventory() {
+            const format = document.getElementById('inventory-format').value;
+            const lowStockOnly = document.getElementById('inventory-low-stock').checked;
+            const shelfFilter = document.getElementById('inventory-shelf').value;
+
+            showLoading();
+            
+            try {
+                let data = await inventoryDB.getAllInventory(1000);
+                
+                // Apply filters
+                if (lowStockOnly) {
+                    data = data.filter(item => item.amount < item.parLevel);
+                }
+                if (shelfFilter) {
+                    data = data.filter(item => item.shelfNumber === shelfFilter);
+                }
+
+                // Prepare export data
+                const exportData = data.map(item => ({
+                    'Brand Name': item.brandName || '',
+                    'Generic Name': item.genericName || '',
+                    'Shelf Number': item.shelfNumber || '',
+                    'NDC': item.ndc || '',
+                    'Amount': item.amount || 0,
+                    'Par Level': item.parLevel || 0,
+                    'Expiration Date': formatDate(item.expiration),
+                    'Strength': item.strength || '',
+                    'Dosage Form': item.dosageForm || '',
+                    'Lot Number': item.lot || '',
+                    'Notes': item.notes || '',
+                    'Last Updated': formatDate(item.updatedAt)
+                }));
+
+                await downloadExport(exportData, `inventory_${getCurrentDateTime()}`, format);
+                
+            } catch (error) {
+                console.error('Error exporting inventory:', error);
+                alert('Error exporting inventory: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function exportExpired() {
+            const format = document.getElementById('expired-format').value;
+
+            showLoading();
+            
+            try {
+                const data = await inventoryDB.getExpiredItems(1000);
+
+                const exportData = data.map(item => ({
+                    'Brand Name': item.brandName || '',
+                    'Shelf Number': item.shelfNumber || '',
+                    'NDC': item.ndc || '',
+                    'Lot': item.lot || '',
+                    'Expiration': formatDate(item.expiration),
+                    'Type': item.type || 'expired',
+                    'Amount': item.amount || 0,
+                    'Reported At': formatDate(item.reportedAt || item.createdAt)
+                }));
+
+                await downloadExport(exportData, `expired_recalled_${getCurrentDateTime()}`, format);
+                
+            } catch (error) {
+                console.error('Error exporting expired items:', error);
+                alert('Error exporting expired items: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function exportReports() {
+            const format = document.getElementById('reports-format').value;
+            const startDate = document.getElementById('reports-start-date').value;
+            const endDate = document.getElementById('reports-end-date').value;
+            const reportType = document.getElementById('report-type').value;
+
+            showLoading();
+            
+            try {
+                let query = db.collection('reports')
+                    .orderBy('createdAt', 'desc');
+
+                if (startDate) {
+                    query = query.where('createdAt', '>=', startDate);
+                }
+                if (endDate) {
+                    const endDateTime = new Date(endDate);
+                    endDateTime.setDate(endDateTime.getDate() + 1);
+                    query = query.where('createdAt', '<', endDateTime.toISOString());
+                }
+                if (reportType !== 'all') {
+                    query = query.where('type', '==', reportType);
+                }
+
+                const snapshot = await query.get();
+                const reports = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                const exportData = reports.map(report => ({
+                    'Report ID': report.id,
+                    'Type': report.type,
+                    'Brand Name': report.brandName || '',
+                    'NDC': report.ndc || '',
+                    'Shelf Number': report.shelfNumber || '',
+                    'Quantity': report.quantity || report.actualCount || '',
+                    'Discrepancy': report.discrepancy || '',
+                    'Reason': report.reason || '',
+                    'Lot': report.lot || '',
+                    'Status': report.status || '',
+                    'Reported By': report.reportedBy || '',
+                    'Created At': formatDate(report.createdAt),
+                    'Notes': report.notes || ''
+                }));
+
+                await downloadExport(exportData, `reports_${getCurrentDateTime()}`, format);
+                
+            } catch (error) {
+                console.error('Error exporting reports:', error);
+                alert('Error exporting reports: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function exportSubstitutions() {
+            const format = document.getElementById('substitutions-format').value;
+            const activeOnly = document.getElementById('substitutions-active-only').checked;
+
+            showLoading();
+            
+            try {
+                let query = db.collection('substitutions');
+                
+                if (activeOnly) {
+                    query = query.where('isActive', '==', true);
+                }
+
+                const snapshot = await query.get();
+                const substitutions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+                // Get inventory data to resolve drug names
+                const inventoryItems = await inventoryDB.getAllInventory(1000);
+
+                const exportData = substitutions.map(sub => {
+                    const originalItem = inventoryItems.find(item => item.id === sub.originalDrugId);
+                    const substituteItem = inventoryItems.find(item => item.id === sub.substituteDrugId);
+
+                    return {
+                        'Original Brand': originalItem?.brandName || '',
+                        'Original Generic': originalItem?.genericName || '',
+                        'Original NDC': originalItem?.ndc || '',
+                        'Original Strength': originalItem?.strength || '',
+                        'Substitute Brand': substituteItem?.brandName || '',
+                        'Substitute Generic': substituteItem?.genericName || '',
+                        'Substitute NDC': substituteItem?.ndc || '',
+                        'Substitute Strength': substituteItem?.strength || '',
+                        'Conversion Ratio': sub.conversionRatio || '',
+                        'Type': sub.substitutionType || '',
+                        'Active': sub.isActive ? 'Yes' : 'No',
+                        'Requires Approval': sub.requiresApproval ? 'Yes' : 'No',
+                        'Created At': formatDate(sub.createdAt),
+                        'Notes': sub.notes || ''
+                    };
+                });
+
+                await downloadExport(exportData, `substitutions_${getCurrentDateTime()}`, format);
+                
+            } catch (error) {
+                console.error('Error exporting substitutions:', error);
+                alert('Error exporting substitutions: ' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Preview Functions
+        async function previewInventory() {
+            // Implementation for previewing inventory data
+            const data = await inventoryDB.getAllInventory(10);
+            showPreview(data, 'inventory', 'Inventory Preview');
+        }
+
+        async function previewExpired() {
+            const data = await inventoryDB.getExpiredItems(10);
+            showPreview(data, 'expired', 'Expired/Recalled Items Preview');
+        }
+
+        async function previewReports() {
+            try {
+                const snapshot = await db.collection('reports').limit(10).get();
+                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                showPreview(data, 'reports', 'Reports Preview');
+            } catch (error) {
+                console.error('Error previewing reports:', error);
+            }
+        }
+
+        async function previewSubstitutions() {
+            try {
+                const snapshot = await db.collection('substitutions').limit(10).get();
+                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                showPreview(data, 'substitutions', 'Substitutions Preview');
+            } catch (error) {
+                console.error('Error previewing substitutions:', error);
+            }
+        }
+
+        function showPreview(data, type, title) {
+            const previewDiv = document.getElementById('export-preview');
+            const summaryDiv = document.getElementById('export-summary');
+            const contentDiv = document.getElementById('preview-content');
+
+            // Show summary
+            summaryDiv.innerHTML = `
+                <div class="summary-row">
+                    <span><strong>${title}</strong></span>
+                    <span><strong>Total Records: ${data.length}</strong></span>
+                </div>
+                <div class="summary-row">
+                    <span>Showing first 10 records</span>
+                    <span>Generated: ${new Date().toLocaleString()}</span>
+                </div>
+            `;
+
+            // Create preview table based on type
+            let tableHTML = '<table class="preview-table">';
+            
+            if (type === 'inventory') {
+                tableHTML += `
+                    <thead>
+                        <tr>
+                            <th>Brand Name</th>
+                            <th>Generic Name</th>
+                            <th>Shelf</th>
+                            <th>NDC</th>
+                            <th>Amount</th>
+                            <th>Par Level</th>
+                            <th>Expiration</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                `;
+                data.forEach(item => {
+                    tableHTML += `
+                        <tr>
+                            <td>${item.brandName || ''}</td>
+                            <td>${item.genericName || ''}</td>
+                            <td>${item.shelfNumber || ''}</td>
+                            <td>${item.ndc || ''}</td>
+                            <td>${item.amount || 0}</td>
+                            <td>${item.parLevel || 0}</td>
+                            <td>${formatDate(item.expiration)}</td>
+                        </tr>
+                    `;
+                });
+            } else if (type === 'expired') {
+                tableHTML += `
+                    <thead>
+                        <tr>
+                            <th>Brand Name</th>
+                            <th>Shelf</th>
+                            <th>NDC</th>
+                            <th>Lot</th>
+                            <th>Expiration</th>
+                            <th>Type</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                `;
+                data.forEach(item => {
+                    tableHTML += `
+                        <tr>
+                            <td>${item.brandName || ''}</td>
+                            <td>${item.shelfNumber || ''}</td>
+                            <td>${item.ndc || ''}</td>
+                            <td>${item.lot || ''}</td>
+                            <td>${formatDate(item.expiration)}</td>
+                            <td>${item.type || 'expired'}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            tableHTML += '</tbody></table>';
+            contentDiv.innerHTML = tableHTML;
+            previewDiv.style.display = 'block';
+        }
+
+        // Helper Functions
+        async function downloadExport(data, filename, format) {
+            if (format === 'csv') {
+                downloadCSV(data, filename);
+            } else if (format === 'excel') {
+                downloadExcel(data, filename);
+            } else if (format === 'pdf') {
+                downloadPDF(data, filename);
+            }
+        }
+
+        function downloadCSV(data, filename) {
+            if (data.length === 0) {
+                alert('No data to export');
+                return;
+            }
+
+            const headers = Object.keys(data[0]);
+            const csvContent = [
+                headers.join(','),
+                ...data.map(row => headers.map(header => {
+                    const value = row[header] || '';
+                    // Escape commas and quotes
+                    return typeof value === 'string' && (value.includes(',') || value.includes('"')) 
+                        ? `"${value.replace(/"/g, '""')}"` 
+                        : value;
+                }).join(','))
+            ].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${filename}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+        }
+
+        function downloadExcel(data, filename) {
+            if (data.length === 0) {
+                alert('No data to export');
+                return;
+            }
+
+            const worksheet = XLSX.utils.json_to_sheet(data);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Data');
+            XLSX.writeFile(workbook, `${filename}.xlsx`);
+        }
+
+        function downloadPDF(data, filename) {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF();
+            
+            pdf.setFontSize(16);
+            pdf.text(filename.replace(/_/g, ' ').toUpperCase(), 20, 20);
+            
+            pdf.setFontSize(10);
+            let yPosition = 40;
+            
+            if (data.length === 0) {
+                pdf.text('No data to export', 20, yPosition);
+            } else {
+                // Simple table for PDF (you might want to use jsPDF-AutoTable for better formatting)
+                const headers = Object.keys(data[0]);
+                pdf.text(headers.join(' | '), 20, yPosition);
+                yPosition += 10;
+                
+                data.forEach(row => {
+                    if (yPosition > 270) {
+                        pdf.addPage();
+                        yPosition = 20;
+                    }
+                    
+                    const values = headers.map(header => (row[header] || '').toString().substring(0, 15));
+                    pdf.text(values.join(' | '), 20, yPosition);
+                    yPosition += 8;
+                });
+            }
+            
+            pdf.save(`${filename}.pdf`);
+        }
+
+        function showLoading() {
+            document.getElementById('loading-overlay').style.display = 'flex';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-overlay').style.display = 'none';
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            try {
+                return new Date(dateString).toLocaleDateString('en-US');
+            } catch (error) {
+                return dateString;
+            }
+        }
+
+        function getCurrentDateTime() {
+            return new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+        }
+    </script>
+    <script src="footer.js"></script>
+</body>
+</html>

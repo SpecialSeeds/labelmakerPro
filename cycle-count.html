@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cycle Count - Inventory Management</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .count-item {
+            background: #F7FAFC;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+
+        .count-item h4 {
+            margin-top: 0;
+            color: #2D3748;
+            font-size: 16px;
+        }
+
+        .count-controls {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            gap: 15px;
+            align-items: center;
+            margin-top: 15px;
+        }
+
+        .count-input {
+            width: 100%;
+            max-width: 150px;
+        }
+
+        .discrepancy {
+            background: #FED7D7 !important;
+            border-color: #F56565 !important;
+        }
+
+        .count-summary {
+            background: white;
+            border: 1px solid #E2E8F0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+
+        .summary-item {
+            text-align: center;
+        }
+
+        .summary-item .number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #6B46C1;
+        }
+
+        .summary-item .label {
+            font-size: 12px;
+            color: #718096;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <h2>menu</h2>
+        </div>
+        <ul class="sidebar-nav">
+            <li><a href="index.html">home</a></li>
+            <li><a href="medidose.html">medidose labels</a></li>
+            <li><a href="rxlabel.html">rx labels</a></li>
+            <li><a href="inventory.html" class="active">inventory</a></li>
+            <li><a href="settings.html">settings</a></li>
+        </ul>
+    </nav>
+
+    <div class="main-content">
+        <div class="container">
+            <h1>Cycle Count</h1>
+            
+            <div class="section">
+                <a href="inventory.html" class="secondary-btn" style="margin-bottom: 20px;">← Back to Inventory</a>
+                
+                <!-- Count Summary -->
+                <div class="count-summary">
+                    <h3>Count Summary</h3>
+                    <div class="summary-grid">
+                        <div class="summary-item">
+                            <div class="number" id="total-items">0</div>
+                            <div class="label">Total Items</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="number" id="counted-items">0</div>
+                            <div class="label">Counted</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="number" id="discrepancies">0</div>
+                            <div class="label">Discrepancies</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="number" id="completion-rate">0%</div>
+                            <div class="label">Complete</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filter Options -->
+                <div class="form-row" style="margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label for="shelf-filter">Filter by Shelf</label>
+                        <select id="shelf-filter" onchange="applyFilters()">
+                            <option value="">All Shelves</option>
+                            <option value="1">Shelf 1</option>
+                            <option value="2">Shelf 2</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="search-filter">Search</label>
+                        <input type="text" id="search-filter" placeholder="Search by name or NDC..." onkeyup="applyFilters()">
+                    </div>
+                </div>
+
+                <!-- Count Items -->
+                <div id="count-items-container">
+                    <div class="loading">Loading items to count...</div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="text-align: center; margin-top: 30px;">
+                    <button class="generate-btn" onclick="saveAllCounts()">Save All Counts</button>
+                    <button class="secondary-btn" onclick="resetCounts()">Reset Counts</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="firebase-data.js"></script>
+    <script src="inventory-script.js"></script>
+
+    <script>
+        let allItems = [];
+        let filteredItems = [];
+        let countData = {};
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            await loadCycleCountData();
+        });
+
+        async function loadCycleCountData() {
+            try {
+                allItems = await inventoryDB.getAllInventory(100); // Get more items for counting
+                filteredItems = [...allItems];
+                initializeCountData();
+                displayCountItems();
+                updateSummary();
+            } catch (error) {
+                console.error('Error loading cycle count data:', error);
+                document.getElementById('count-items-container').innerHTML = 
+                    '<div class="no-data">Error loading inventory items</div>';
+            }
+        }
+
+        function initializeCountData() {
+            countData = {};
+            allItems.forEach(item => {
+                countData[item.id] = {
+                    systemCount: item.amount,
+                    actualCount: null,
+                    counted: false,
+                    discrepancy: 0
+                };
+            });
+        }
+
+        function displayCountItems() {
+            const container = document.getElementById('count-items-container');
+            container.innerHTML = '';
+
+            if (filteredItems.length === 0) {
+                container.innerHTML = '<div class="no-data">No items found</div>';
+                return;
+            }
+
+            filteredItems.forEach(item => {
+                const countInfo = countData[item.id];
+                const hasDiscrepancy = countInfo.counted && Math.abs(countInfo.discrepancy) > 0;
+                
+                const itemDiv = document.createElement('div');
+                itemDiv.className = `count-item ${hasDiscrepancy ? 'discrepancy' : ''}`;
+                itemDiv.innerHTML = `
+                    <h4>${item.brandName} (${item.genericName})</h4>
+                    <p><strong>NDC:</strong> ${item.ndc} | <strong>Shelf:</strong> ${item.shelfNumber} | <strong>System Count:</strong> ${item.amount}</p>
+                    ${item.expiration ? `<p><strong>Expires:</strong> ${formatDate(item.expiration)}</p>` : ''}
+                    
+                    <div class="count-controls">
+                        <input type="number" 
+                               class="count-input" 
+                               placeholder="Enter actual count" 
+                               value="${countInfo.actualCount !== null ? countInfo.actualCount : ''}"
+                               onchange="updateCount('${item.id}', this.value)"
+                               min="0">
+                        <span class="discrepancy-display" style="font-weight: bold; color: ${hasDiscrepancy ? '#E53E3E' : '#38A169'};">
+                            ${countInfo.counted ? (hasDiscrepancy ? `Diff: ${countInfo.discrepancy}` : '✓ Match') : 'Not counted'}
+                        </span>
+                        <button class="secondary-btn" onclick="markComplete('${item.id}')">
+                            ${countInfo.counted ? 'Recounted' : 'Mark Complete'}
+                        </button>
+                    </div>
+                `;
+                container.appendChild(itemDiv);
+            });
+        }
+
+        function updateCount(itemId, actualCount) {
+            const count = actualCount === '' ? null : parseInt(actualCount);
+            const systemCount = countData[itemId].systemCount;
+            
+            countData[itemId].actualCount = count;
+            countData[itemId].counted = count !== null;
+            countData[itemId].discrepancy = count !== null ? count - systemCount : 0;
+            
+            updateSummary();
+            displayCountItems(); // Refresh display to show discrepancy status
+        }
+
+        function markComplete(itemId) {
+            const actualCount = countData[itemId].actualCount;
+            if (actualCount !== null) {
+                countData[itemId].counted = true;
+                updateSummary();
+                displayCountItems();
+            } else {
+                alert('Please enter an actual count first');
+            }
+        }
+
+        function updateSummary() {
+            const totalItems = allItems.length;
+            const countedItems = Object.values(countData).filter(c => c.counted).length;
+            const discrepancies = Object.values(countData).filter(c => c.counted && Math.abs(c.discrepancy) > 0).length;
+            const completionRate = totalItems > 0 ? Math.round((countedItems / totalItems) * 100) : 0;
+
+            document.getElementById('total-items').textContent = totalItems;
+            document.getElementById('counted-items').textContent = countedItems;
+            document.getElementById('discrepancies').textContent = discrepancies;
+            document.getElementById('completion-rate').textContent = completionRate + '%';
+        }
+
+        function applyFilters() {
+            const shelfFilter = document.getElementById('shelf-filter').value;
+            const searchFilter = document.getElementById('search-filter').value.toLowerCase();
+
+            filteredItems = allItems.filter(item => {
+                const matchesShelf = !shelfFilter || item.shelfNumber === shelfFilter;
+                const matchesSearch = !searchFilter || 
+                    item.brandName.toLowerCase().includes(searchFilter) ||
+                    item.genericName.toLowerCase().includes(searchFilter) ||
+                    item.ndc.includes(searchFilter);
+                
+                return matchesShelf && matchesSearch;
+            });
+
+            displayCountItems();
+        }
+
+        async function saveAllCounts() {
+            if (confirm('Are you sure you want to save all counts? This will update inventory levels.')) {
+                const saveBtn = event.target;
+                const originalText = saveBtn.textContent;
+                saveBtn.textContent = 'Saving...';
+                saveBtn.disabled = true;
+
+                try {
+                    let updatedCount = 0;
+                    const discrepancyReport = [];
+
+                    for (const [itemId, countInfo] of Object.entries(countData)) {
+                        if (countInfo.counted && countInfo.actualCount !== null) {
+                            await inventoryDB.updateInventoryItem(itemId, {
+                                amount: countInfo.actualCount,
+                                lastCounted: new Date().toISOString()
+                            });
+                            updatedCount++;
+
+                            // Track discrepancies
+                            if (Math.abs(countInfo.discrepancy) > 0) {
+                                const item = allItems.find(i => i.id === itemId);
+                                discrepancyReport.push({
+                                    brandName: item.brandName,
+                                    ndc: item.ndc,
+                                    systemCount: countInfo.systemCount,
+                                    actualCount: countInfo.actualCount,
+                                    discrepancy: countInfo.discrepancy
+                                });
+                            }
+                        }
+                    }
+
+                    alert(`Cycle count complete! Updated ${updatedCount} items.${discrepancyReport.length > 0 ? ` Found ${discrepancyReport.length} discrepancies.` : ''}`);
+                    
+                    // Redirect back to inventory
+                    window.location.href = 'inventory.html';
+
+                } catch (error) {
+                    console.error('Error saving counts:', error);
+                    alert('Error saving counts: ' + error.message);
+                } finally {
+                    saveBtn.textContent = originalText;
+                    saveBtn.disabled = false;
+                }
+            }
+        }
+
+        function resetCounts() {
+            if (confirm('Are you sure you want to reset all counts?')) {
+                initializeCountData();
+                displayCountItems();
+                updateSummary();
+            }
+        }
+
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            try {
+                return new Date(dateString).toLocaleDateString('en-US');
+            } catch (error) {
+                return dateString;
+            }
+        }
+    </script>
+    <script src="footer.js"></script>
+</body>
+</html>

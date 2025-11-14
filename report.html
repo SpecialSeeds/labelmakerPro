@@ -105,7 +105,7 @@
 
     <div class="main-content">
         <div class="container">
-            <h1>Report</h1>
+            <h1>Report (Discrepancy or Expired or Recall)</h1>
             
             <div class="section">
                 <a href="inventory.html" class="secondary-btn" style="margin-bottom: 20px;">← Back to Inventory</a>
@@ -321,6 +321,7 @@
 
         async function loadInventoryItems() {
             try {
+                // Get all inventory for reporting purposes
                 inventoryItems = await inventoryDB.getAllInventory(100);
                 populateItemSelects();
             } catch (error) {
@@ -345,20 +346,24 @@
             });
         }
 
-
+        // Tab switching
         function showReportTab(tabName) {
+            // Hide all content
             document.querySelectorAll('.report-content').forEach(content => {
                 content.classList.remove('active');
             });
             
+            // Remove active from all tabs
             document.querySelectorAll('.report-tab').forEach(tab => {
                 tab.classList.remove('active');
             });
             
+            // Show selected content and activate tab
             document.getElementById(tabName + '-content').classList.add('active');
             event.target.classList.add('active');
         }
 
+        // Discrepancy form handling
         document.getElementById('discrepancy-item').addEventListener('change', function() {
             const selectedOption = this.selectedOptions[0];
             if (selectedOption.value) {
@@ -381,6 +386,7 @@
             document.getElementById('discrepancy-amount').style.color = discrepancy === 0 ? 'green' : 'red';
         }
 
+        // Form submissions
         document.getElementById('discrepancy-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             

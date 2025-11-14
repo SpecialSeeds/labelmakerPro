@@ -51,15 +51,10 @@ class InventoryDatabase {
         }
     }
 
-    // Get all inventory items (excluding expired items)
-    async getAllInventory(limit = 10, startAfter = null) {
+    // Get all inventory items
+    async getAllInventory(limit = 100, startAfter = null) {
         try {
-            // Get current date for comparison
-            const currentDate = new Date().toISOString().split('T')[0];
-            
             let query = this.inventoryRef
-                .where('expiration', '>', currentDate) // Only get non-expired items
-                .orderBy('expiration')
                 .orderBy('brandName')
                 .limit(limit);
 
@@ -68,6 +63,8 @@ class InventoryDatabase {
             }
 
             const snapshot = await query.get();
+            console.log(`Retrieved ${snapshot.docs.length} total inventory items`);
+            
             return snapshot.docs.map(doc => ({ 
                 id: doc.id, 
                 ...doc.data(),
@@ -79,28 +76,6 @@ class InventoryDatabase {
         }
     }
 
-    // Get all inventory items including expired (for admin/export purposes)
-    async getAllInventoryIncludingExpired(limit = 10, startAfter = null) {
-        try {
-            let query = this.inventoryRef
-                .orderBy('brandName')
-                .limit(limit);
-
-            if (startAfter) {
-                query = query.startAfter(startAfter);
-            }
-
-            const snapshot = await query.get();
-            return snapshot.docs.map(doc => ({ 
-                id: doc.id, 
-                ...doc.data(),
-                docRef: doc
-            }));
-        } catch (error) {
-            console.error('Error getting all inventory:', error);
-            return [];
-        }
-    }
 
     // Get expired/recalled items (automatically detected from inventory)
     async getExpiredItems(limit = 10, startAfter = null) {
@@ -333,7 +308,9 @@ async function loadInventoryData(loadMore = false) {
     }
 
     try {
-        const items = await inventoryDB.getAllInventory(10, lastInventoryDoc);
+        console.log('Loading inventory data...');
+        const items = await inventoryDB.getAllInventory(50, lastInventoryDoc);
+        console.log(`Loaded ${items.length} inventory items from database`);
         
         if (!loadMore) {
             currentInventoryItems = items;
@@ -350,8 +327,10 @@ async function loadInventoryData(loadMore = false) {
         loadingElement.style.display = 'none';
         if (currentInventoryItems.length === 0) {
             noDataElement.style.display = 'block';
+            console.log('No inventory items found');
         } else {
             contentElement.style.display = 'block';
+            console.log(`Displaying inventory section with ${currentInventoryItems.length} total items`);
         }
     } catch (error) {
         console.error('Error loading inventory:', error);
@@ -407,7 +386,15 @@ function displayInventoryItems() {
     const tableBody = document.getElementById('inventory-table-body');
     tableBody.innerHTML = '';
 
-    currentInventoryItems.forEach(item => {
+    // Filter out expired items on the frontend
+    const currentDate = new Date().toISOString().split('T')[0];
+    const activeItems = currentInventoryItems.filter(item => {
+        return !item.expiration || item.expiration > currentDate;
+    });
+
+    console.log(`Displaying ${activeItems.length} active items out of ${currentInventoryItems.length} total items`);
+
+    activeItems.forEach(item => {
         const row = document.createElement('tr');
         
         // Determine stock status
@@ -418,19 +405,15 @@ function displayInventoryItems() {
             stockClass = 'low-stock';
         }
 
-        // Check if expired
-        const currentDate = new Date().toISOString().split('T')[0];
-        const isExpired = item.expiration <= currentDate;
-
         row.className = stockClass;
         row.innerHTML = `
-            <td class="${isExpired ? 'expired-item' : ''}">${item.brandName || ''}</td>
-            <td class="${isExpired ? 'expired-item' : ''}">${item.genericName || ''}</td>
+            <td>${item.brandName || ''}</td>
+            <td>${item.genericName || ''}</td>
             <td>${item.shelfNumber || ''}</td>
             <td>${item.ndc || ''}</td>
             <td>${item.amount || 0}</td>
             <td>${item.parLevel || 0}</td>
-            <td class="${isExpired ? 'expired-item' : ''}">${formatDate(item.expiration)}</td>
+            <td>${formatDate(item.expiration)}</td>
             <td>
                 <span class="action-icon edit-icon" onclick="editInventoryItem('${item.id}')" title="Edit">✏️</span>
                 <span class="action-icon delete-icon" onclick="deleteInventoryItem('${item.id}')" title="Delete">🗑️</span>
@@ -438,6 +421,12 @@ function displayInventoryItems() {
         `;
         tableBody.appendChild(row);
     });
+
+    // Update the info text to show filtered count
+    const inventorySection = document.querySelector('.inventory-section h3');
+    if (inventorySection) {
+        inventorySection.innerHTML = `Inventory (table) - ${activeItems.length} active items`;
+    }
 }
 
 // Display expired items in table

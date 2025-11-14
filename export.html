@@ -160,7 +160,7 @@
                 
                 <!-- Export Options -->
                 <div class="export-option">
-                    <h3>Current Inventory</h3>
+                    <h3>📦 Current Inventory</h3>
                     <p>Export all current inventory items with stock levels, locations, and expiration dates</p>
                     
                     <div class="export-controls">
@@ -194,7 +194,7 @@
                 </div>
 
                 <div class="export-option">
-                    <h3>Expired & Recalled Items</h3>
+                    <h3>⚠️ Expired & Recalled Items</h3>
                     <p>Export items that are expired or have been recalled</p>
                     
                     <div class="export-controls">
@@ -210,7 +210,7 @@
                 </div>
 
                 <div class="export-option">
-                    <h3>Reports & Analytics</h3>
+                    <h3>📊 Reports & Analytics</h3>
                     <p>Export discrepancy reports, cycle count results, and substitution records</p>
                     
                     <div class="date-range">
@@ -305,8 +305,8 @@
             showLoading();
             
             try {
-                // Get all inventory including expired for export purposes
-                let data = await inventoryDB.getAllInventoryIncludingExpired(1000);
+                // Get all inventory for export purposes
+                let data = await inventoryDB.getAllInventory(1000);
                 
                 // Apply filters
                 if (lowStockOnly) {

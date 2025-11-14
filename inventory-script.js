@@ -1,26 +1,65 @@
+// Inventory database management
 class InventoryDatabase {
     constructor() {
         this.inventoryRef = db.collection('inventory');
         this.expiredRef = db.collection('expired_recalled');
     }
 
+    // Add new inventory item
     async addInventoryItem(item) {
         try {
-            const docRef = await this.inventoryRef.add({
+            console.log('Attempting to add inventory item:', item);
+            
+            // Validate required fields
+            const requiredFields = ['brandName', 'genericName', 'ndc', 'shelfNumber'];
+            const missingFields = requiredFields.filter(field => !item[field]);
+            
+            if (missingFields.length > 0) {
+                throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+            }
+            
+            const itemData = {
                 ...item,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
-            });
-            return { id: docRef.id, ...item };
+            };
+            
+            console.log('Adding item data to Firestore:', itemData);
+            
+            const docRef = await this.inventoryRef.add(itemData);
+            console.log('Successfully added item with ID:', docRef.id);
+            
+            return { id: docRef.id, ...itemData };
         } catch (error) {
-            console.error('Error adding inventory item:', error);
-            throw error;
+            console.error('Detailed error adding inventory item:', {
+                error: error,
+                code: error.code,
+                message: error.message,
+                stack: error.stack
+            });
+            
+            // Provide more user-friendly error messages
+            if (error.code === 'permission-denied') {
+                throw new Error('Permission denied. Please check Firebase security rules.');
+            } else if (error.code === 'unavailable') {
+                throw new Error('Database unavailable. Please check your internet connection.');
+            } else if (error.code === 'unauthenticated') {
+                throw new Error('Authentication required. Please refresh the page.');
+            } else {
+                throw new Error(`Failed to save inventory item: ${error.message}`);
+            }
         }
     }
 
+    // Get all inventory items (excluding expired items)
     async getAllInventory(limit = 10, startAfter = null) {
         try {
+            // Get current date for comparison
+            const currentDate = new Date().toISOString().split('T')[0];
+            
             let query = this.inventoryRef
+                .where('expiration', '>', currentDate) // Only get non-expired items
+                .orderBy('expiration')
                 .orderBy('brandName')
                 .limit(limit);
 
@@ -40,8 +79,33 @@ class InventoryDatabase {
         }
     }
 
+    // Get all inventory items including expired (for admin/export purposes)
+    async getAllInventoryIncludingExpired(limit = 10, startAfter = null) {
+        try {
+            let query = this.inventoryRef
+                .orderBy('brandName')
+                .limit(limit);
+
+            if (startAfter) {
+                query = query.startAfter(startAfter);
+            }
+
+            const snapshot = await query.get();
+            return snapshot.docs.map(doc => ({ 
+                id: doc.id, 
+                ...doc.data(),
+                docRef: doc
+            }));
+        } catch (error) {
+            console.error('Error getting all inventory:', error);
+            return [];
+        }
+    }
+
+    // Get expired/recalled items (automatically detected from inventory)
     async getExpiredItems(limit = 10, startAfter = null) {
         try {
+            // Get items where expiration date is past
             const currentDate = new Date();
             currentDate.setHours(0, 0, 0, 0);
             const currentDateStr = currentDate.toISOString().split('T')[0];
@@ -55,15 +119,16 @@ class InventoryDatabase {
                 query = query.startAfter(startAfter);
             }
 
-            const snapshot = await query.get();
-
+            const expiredSnapshot = await query.get();
+            
+            // Also get explicitly recalled items
             const recalledQuery = this.expiredRef
                 .orderBy('createdAt', 'desc')
                 .limit(limit);
 
             const recalledSnapshot = await recalledQuery.get();
 
-            const expiredItems = snapshot.docs.map(doc => ({ 
+            const expiredItems = expiredSnapshot.docs.map(doc => ({ 
                 id: doc.id, 
                 ...doc.data(),
                 type: 'expired',
@@ -77,14 +142,20 @@ class InventoryDatabase {
                 docRef: doc
             }));
 
-            return [...expiredItems, ...recalledItems];
+            // Combine and remove duplicates (in case an item is both expired and recalled)
+            const allExpiredRecalled = [...expiredItems, ...recalledItems];
+            const uniqueItems = allExpiredRecalled.filter((item, index, self) => 
+                index === self.findIndex(t => t.ndc === item.ndc && t.lot === item.lot)
+            );
+
+            return uniqueItems.slice(0, limit);
         } catch (error) {
             console.error('Error getting expired items:', error);
             return [];
         }
     }
 
-
+    // Update inventory item
     async updateInventoryItem(id, updates) {
         try {
             await this.inventoryRef.doc(id).update({
@@ -98,7 +169,7 @@ class InventoryDatabase {
         }
     }
 
-
+    // Delete inventory item
     async deleteInventoryItem(id) {
         try {
             await this.inventoryRef.doc(id).delete();
@@ -109,7 +180,7 @@ class InventoryDatabase {
         }
     }
 
-
+    // Report item as expired/recalled
     async reportExpiredRecalled(item) {
         try {
             const docRef = await this.expiredRef.add({
@@ -142,20 +213,112 @@ class InventoryDatabase {
     }
 }
 
+// Initialize inventory database
+let inventoryDB = null;
 
-const inventoryDB = new InventoryDatabase();
+// Test Firebase connection and initialize
+async function testFirebaseConnection() {
+    try {
+        console.log('Testing Firebase connection...');
+        
+        // Test if Firebase is properly initialized
+        if (!firebase.apps.length) {
+            console.error('Firebase not initialized');
+            return false;
+        }
+        
+        // Test Firestore connection
+        await db.doc('test/connection').set({
+            timestamp: new Date().toISOString(),
+            test: true
+        });
+        
+        // Clean up test document
+        await db.doc('test/connection').delete();
+        
+        console.log('Firebase connection successful');
+        return true;
+    } catch (error) {
+        console.error('Firebase connection failed:', {
+            error: error,
+            code: error.code,
+            message: error.message
+        });
+        
+        // Show user-friendly error
+        if (error.code === 'permission-denied') {
+            alert('Database permission denied. Please contact the administrator to update Firebase security rules.');
+        } else {
+            alert('Database connection failed. Please check your internet connection and try again.');
+        }
+        
+        return false;
+    }
+}
 
+// Initialize with connection test
+async function initializeInventoryDB() {
+    const connectionOK = await testFirebaseConnection();
+    if (connectionOK) {
+        inventoryDB = new InventoryDatabase();
+        console.log('Inventory database initialized successfully');
+    } else {
+        console.error('Cannot initialize inventory database - connection failed');
+    }
+}
 
+// Global variables for pagination
 let currentInventoryItems = [];
 let currentExpiredItems = [];
 let lastInventoryDoc = null;
 let lastExpiredDoc = null;
 
+// Load inventory data when page loads
 window.addEventListener('DOMContentLoaded', async () => {
-    await loadInventoryData();
-    await loadExpiredData();
+    await initializeInventoryDB();
+    if (inventoryDB) {
+        await loadInventoryData();
+        await loadExpiredData();
+        
+        // Check for newly expired items periodically
+        setInterval(checkForNewlyExpiredItems, 60000); // Check every minute
+    }
 });
 
+// Function to check for newly expired items and handle them automatically
+async function checkForNewlyExpiredItems() {
+    try {
+        const currentDate = new Date().toISOString().split('T')[0];
+        
+        // Get items that expired today or recently
+        const recentlyExpiredQuery = await inventoryDB.inventoryRef
+            .where('expiration', '<=', currentDate)
+            .where('expiration', '>', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0])
+            .get();
+
+        if (!recentlyExpiredQuery.empty) {
+            const expiredItems = recentlyExpiredQuery.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+
+            console.log(`Found ${expiredItems.length} newly expired items`);
+            
+            // Optionally show notification to user
+            if (expiredItems.length > 0) {
+                const itemNames = expiredItems.map(item => item.brandName).join(', ');
+                console.log(`Expired items detected: ${itemNames}`);
+                
+                // Refresh the expired items display
+                await loadExpiredData();
+            }
+        }
+    } catch (error) {
+        console.error('Error checking for expired items:', error);
+    }
+}
+
+// Load inventory items
 async function loadInventoryData(loadMore = false) {
     const loadingElement = document.getElementById('inventory-loading');
     const contentElement = document.getElementById('inventory-content');
@@ -239,6 +402,7 @@ async function loadExpiredData(loadMore = false) {
     }
 }
 
+// Display inventory items in table
 function displayInventoryItems() {
     const tableBody = document.getElementById('inventory-table-body');
     tableBody.innerHTML = '';
@@ -254,6 +418,7 @@ function displayInventoryItems() {
             stockClass = 'low-stock';
         }
 
+        // Check if expired
         const currentDate = new Date().toISOString().split('T')[0];
         const isExpired = item.expiration <= currentDate;
 
@@ -275,6 +440,7 @@ function displayInventoryItems() {
     });
 }
 
+// Display expired items in table
 function displayExpiredItems() {
     const tableBody = document.getElementById('expired-table-body');
     tableBody.innerHTML = '';
@@ -307,6 +473,7 @@ function formatDate(dateString) {
 
 // Action functions
 async function editInventoryItem(id) {
+    // Redirect to edit page with item ID
     window.location.href = `add-stock.html?edit=${id}`;
 }
 
@@ -314,7 +481,7 @@ async function deleteInventoryItem(id) {
     if (confirm('Are you sure you want to delete this inventory item?')) {
         try {
             await inventoryDB.deleteInventoryItem(id);
-            await loadInventoryData(); 
+            await loadInventoryData(); // Refresh the data
             alert('Item deleted successfully');
         } catch (error) {
             console.error('Error deleting item:', error);
@@ -329,10 +496,10 @@ async function removeExpiredItem(id, type) {
             if (type === 'recalled') {
                 await inventoryDB.expiredRef.doc(id).delete();
             } else {
-
+                // For expired items, you might want to move them or just update status
                 await inventoryDB.deleteInventoryItem(id);
             }
-            await loadExpiredData(); 
+            await loadExpiredData(); // Refresh the data
             alert('Item removed successfully');
         } catch (error) {
             console.error('Error removing item:', error);
@@ -341,6 +508,7 @@ async function removeExpiredItem(id, type) {
     }
 }
 
+// Load more functions
 async function loadMoreInventory() {
     await loadInventoryData(true);
 }

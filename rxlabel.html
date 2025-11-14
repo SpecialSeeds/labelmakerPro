@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rx Label Maker</title>
     <link rel="stylesheet" href="./styles.css">
-    <!-- Dymo Label Framework SDK -->
-    <script src="https://labelwriter.com/software/dls/sdk/js/DYMO.Label.Framework.latest.js" type="text/javascript"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
@@ -14,25 +12,20 @@
 <body>
     <nav class="sidebar">
         <div class="sidebar-header">
-            <h2>Menu</h2>
+            <h2>menu</h2>
         </div>
         <ul class="sidebar-nav">
-            <li><a href="index.html">Home</a></li>
-            <li><a href="medidose.html">MediDose Labels</a></li>
-            <li><a href="rxlabel.html" class="active">Rx Labels</a></li>
-            <li><a href="settings.html">Settings</a></li>
+            <li><a href="index.html">home</a></li>
+            <li><a href="medidose.html">medidose labels</a></li>
+            <li><a href="rxlabel.html" class="active">rx labels</a></li>
+            <li><a href="inventory.html">inventory</a></li>
+            <li><a href="settings.html">settings</a></li>
         </ul>
     </nav>
 
     <div class="main-content">
         <div class="container">
             <h1>Prescription Label Maker</h1>
-
-            <!-- Dymo Printer Status -->
-            <div id="dymoStatus" class="section" style="display: none;">
-                <h2>printer status</h2>
-                <div id="printerInfo"></div>
-            </div>
 
             <div id="patientLookup" class="section">
                 <h2>patient lookup</h2>
@@ -203,7 +196,7 @@
                             <label>debug mode</label>
                             <div class="checkbox-group">
                                 <input type="checkbox" id="debugMode">
-                                <label for="debugMode">download .label file instead of printing</label>
+                                <label for="debugMode">print to pdf instead of printer</label>
                             </div>
                         </div>
                     </div>
@@ -221,5 +214,6 @@
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <script src="firebase-data.js"></script>
     <script src="rxlabel-script.js"></script>
+    <script src="footer.js"></script>
 </body>
 </html>

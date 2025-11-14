@@ -1,21 +1,14 @@
 let selectedPatient = null;
 
 // Initialize when DOM is loaded
-window.addEventListener('DOMContentLoaded', async () => {
-    // Initialize insurance plans dropdown
+window.addEventListener('DOMContentLoaded', () => {
     const insuranceSelect = document.getElementById('insurancePlan');
-    if (insuranceSelect) {
-        insurancePlans.forEach(plan => {
-            const option = document.createElement('option');
-            option.value = JSON.stringify(plan);
-            option.textContent = `${plan.name} (BIN: ${plan.bin})`;
-            insuranceSelect.appendChild(option);
-        });
-    }
-    
-    // Initialize Dymo printing
-    await initializeDymo();
-    await updatePrinterStatus();
+    insurancePlans.forEach(plan => {
+        const option = document.createElement('option');
+        option.value = JSON.stringify(plan);
+        option.textContent = `${plan.name} (BIN: ${plan.bin})`;
+        insuranceSelect.appendChild(option);
+    });
 });
 
 function getSettings() {
@@ -180,6 +173,75 @@ async function generateBarcode(text) {
     });
 }
 
+// Function to deduct from inventory after prescription is filled
+async function deductFromInventory(ndc, quantityDispensed) {
+    try {
+        console.log(`Attempting to deduct ${quantityDispensed} units for NDC: ${ndc}`);
+        
+        // Find inventory item by NDC
+        const inventorySnapshot = await db.collection('inventory')
+            .where('ndc', '==', ndc)
+            .limit(1)
+            .get();
+
+        if (inventorySnapshot.empty) {
+            console.warn(`No inventory found for NDC: ${ndc}`);
+            // Could show a warning but don't fail the prescription
+            const shouldContinue = confirm(`Warning: NDC ${ndc} not found in inventory. Continue anyway?`);
+            if (!shouldContinue) {
+                throw new Error('Prescription cancelled - NDC not in inventory');
+            }
+            return;
+        }
+
+        const inventoryDoc = inventorySnapshot.docs[0];
+        const inventoryData = inventoryDoc.data();
+        const currentAmount = inventoryData.amount || 0;
+        const newAmount = Math.max(0, currentAmount - parseInt(quantityDispensed));
+
+        // Update inventory
+        await inventoryDoc.ref.update({
+            amount: newAmount,
+            updatedAt: new Date().toISOString(),
+            lastDispensed: new Date().toISOString()
+        });
+
+        console.log(`Successfully updated inventory: ${currentAmount} → ${newAmount}`);
+
+        // Show warning if stock is low
+        const parLevel = inventoryData.parLevel || 0;
+        if (newAmount <= parLevel && newAmount > 0) {
+            alert(`Warning: ${inventoryData.brandName} is now below par level (${newAmount} remaining, par: ${parLevel})`);
+        } else if (newAmount === 0) {
+            alert(`Alert: ${inventoryData.brandName} is now out of stock!`);
+        }
+
+        // Log the transaction for audit trail
+        await db.collection('inventory_transactions').add({
+            ndc: ndc,
+            brandName: inventoryData.brandName,
+            transactionType: 'prescription_fill',
+            quantityDispensed: parseInt(quantityDispensed),
+            previousAmount: currentAmount,
+            newAmount: newAmount,
+            patientId: selectedPatient?.id,
+            patientName: selectedPatient ? `${selectedPatient.firstName} ${selectedPatient.lastName}` : 'Unknown',
+            timestamp: new Date().toISOString(),
+            rxNumber: null // Could add rx number here if available
+        });
+
+    } catch (error) {
+        console.error('Error deducting from inventory:', error);
+        
+        // Don't fail the prescription, just warn
+        const errorMessage = error.code === 'permission-denied' 
+            ? 'Permission denied updating inventory. Please check Firebase security rules.'
+            : `Error updating inventory: ${error.message}`;
+            
+        alert(`Warning: Prescription filled but inventory not updated. ${errorMessage}`);
+    }
+}
+
 document.getElementById('prescriptionForm').addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -229,6 +291,10 @@ document.getElementById('prescriptionForm').addEventListener('submit', async (e)
         };
 
         await generateRxLabel(prescriptionData, numLabels, debugMode);
+        
+        // Deduct from inventory after successful label generation
+        await deductFromInventory(prescriptionData.ndc, prescriptionData.quantity);
+        
         btn.textContent = 'labels generated';
         setTimeout(() => {
             btn.textContent = originalText;
@@ -245,355 +311,94 @@ document.getElementById('prescriptionForm').addEventListener('submit', async (e)
     }
 });
 
-// Helper function to escape XML characters
-function escapeXml(unsafe) {
-    return unsafe.replace(/[<>&'"]/g, function (c) {
-        switch (c) {
-            case '<': return '&lt;';
-            case '>': return '&gt;';
-            case '&': return '&amp;';
-            case '\'': return '&apos;';
-            case '"': return '&quot;';
-        }
-    });
-}
-
-// Generate Dymo label XML format
-function generateDymoLabelXML(data, barcodeText) {
-    const rxLabel = data.isControlled ? 'CRX#:' : 'RX#:';
-    
-    // Format the prescription text content with proper line breaks and styling
-    const pharmacyInfo = `${data.pharmacyName}
-${data.pharmacyAddress}
-${data.pharmacyPhone}`;
-
-    const patientInfo = `Patient: ${data.patient.firstName} ${data.patient.lastName}
-DOB: ${data.patient.dateOfBirth}
-Address: ${data.patient.address}
-Phone: ${data.patient.phone}`;
-
-    const drugInfo = `${data.drugName}
-${rxLabel} ${data.rxNumber}`;
-
-    const directions = `Directions: ${data.directions}`;
-
-    const additionalInfo = `Mfr: ${data.manufacturer}
-NDC: ${data.ndc}
-Prescriber: ${data.prescriber}
-QTY: ${data.quantity}  Days Supply: ${data.daysSupply}  Refills: ${data.refills}
-Allergies: ${data.patient.allergies}
-Filled: ${data.date}`;
-
-    return `<?xml version="1.0" encoding="utf-8"?>
-<DieCutLabel Version="8.0" Units="twips" MediaType="Default">
-    <PaperOrientation>Landscape</PaperOrientation>
-    <Id>RxLabel</Id>
-    <IsOutlined>false</IsOutlined>
-    <PaperName>30252 Address</PaperName>
-    <DrawCommands>
-        <RoundRectangle X="0" Y="0" Width="5760" Height="3240" Rx="270" Ry="270" />
-    </DrawCommands>
-    <ObjectInfo>
-        <TextObject>
-            <n>PharmacyHeader</n>
-            <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
-            <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
-            <LinkedObjectName />
-            <Rotation>Rotation0</Rotation>
-            <IsMirrored>False</IsMirrored>
-            <IsVariable>False</IsVariable>
-            <GroupID>-1</GroupID>
-            <IsOutlined>False</IsOutlined>
-            <HorizontalAlignment>Center</HorizontalAlignment>
-            <VerticalAlignment>Top</VerticalAlignment>
-            <TextFitMode>ShrinkToFit</TextFitMode>
-            <UseFullFontHeight>True</UseFullFontHeight>
-            <Verticalized>False</Verticalized>
-            <StyledText>
-                <Element>
-                    <String xml:space="preserve">${escapeXml(pharmacyInfo)}</String>
-                    <Attributes>
-                        <Font Family="Arial" Size="10" Bold="True" Italic="False" Underline="False" Strikeout="False" />
-                        <ForeColor Alpha="255" Red="0" Green="0" Blue="0" HueScale="100" />
-                    </Attributes>
-                </Element>
-            </StyledText>
-        </TextObject>
-        <Bounds X="144" Y="144" Width="5472" Height="432" />
-    </ObjectInfo>
-    <ObjectInfo>
-        <TextObject>
-            <n>PatientInfo</n>
-            <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
-            <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
-            <LinkedObjectName />
-            <Rotation>Rotation0</Rotation>
-            <IsMirrored>False</IsMirrored>
-            <IsVariable>False</IsVariable>
-            <GroupID>-1</GroupID>
-            <IsOutlined>False</IsOutlined>
-            <HorizontalAlignment>Left</HorizontalAlignment>
-            <VerticalAlignment>Top</VerticalAlignment>
-            <TextFitMode>ShrinkToFit</TextFitMode>
-            <UseFullFontHeight>True</UseFullFontHeight>
-            <Verticalized>False</Verticalized>
-            <StyledText>
-                <Element>
-                    <String xml:space="preserve">${escapeXml(patientInfo)}</String>
-                    <Attributes>
-                        <Font Family="Arial" Size="8" Bold="False" Italic="False" Underline="False" Strikeout="False" />
-                        <ForeColor Alpha="255" Red="0" Green="0" Blue="0" HueScale="100" />
-                    </Attributes>
-                </Element>
-            </StyledText>
-        </TextObject>
-        <Bounds X="144" Y="576" Width="3600" Height="432" />
-    </ObjectInfo>
-    <ObjectInfo>
-        <TextObject>
-            <n>DrugInfo</n>
-            <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
-            <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
-            <LinkedObjectName />
-            <Rotation>Rotation0</Rotation>
-            <IsMirrored>False</IsMirrored>
-            <IsVariable>False</IsVariable>
-            <GroupID>-1</GroupID>
-            <IsOutlined>False</IsOutlined>
-            <HorizontalAlignment>Left</HorizontalAlignment>
-            <VerticalAlignment>Top</VerticalAlignment>
-            <TextFitMode>ShrinkToFit</TextFitMode>
-            <UseFullFontHeight>True</UseFullFontHeight>
-            <Verticalized>False</Verticalized>
-            <StyledText>
-                <Element>
-                    <String xml:space="preserve">${escapeXml(drugInfo)}</String>
-                    <Attributes>
-                        <Font Family="Arial" Size="12" Bold="True" Italic="False" Underline="False" Strikeout="False" />
-                        <ForeColor Alpha="255" Red="0" Green="0" Blue="0" HueScale="100" />
-                    </Attributes>
-                </Element>
-            </StyledText>
-        </TextObject>
-        <Bounds X="144" Y="1008" Width="3600" Height="432" />
-    </ObjectInfo>
-    <ObjectInfo>
-        <TextObject>
-            <n>Directions</n>
-            <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
-            <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
-            <LinkedObjectName />
-            <Rotation>Rotation0</Rotation>
-            <IsMirrored>False</IsMirrored>
-            <IsVariable>False</IsVariable>
-            <GroupID>-1</GroupID>
-            <IsOutlined>False</IsOutlined>
-            <HorizontalAlignment>Left</HorizontalAlignment>
-            <VerticalAlignment>Top</VerticalAlignment>
-            <TextFitMode>ShrinkToFit</TextFitMode>
-            <UseFullFontHeight>True</UseFullFontHeight>
-            <Verticalized>False</Verticalized>
-            <StyledText>
-                <Element>
-                    <String xml:space="preserve">${escapeXml(directions)}</String>
-                    <Attributes>
-                        <Font Family="Arial" Size="10" Bold="False" Italic="False" Underline="False" Strikeout="False" />
-                        <ForeColor Alpha="255" Red="0" Green="0" Blue="0" HueScale="100" />
-                    </Attributes>
-                </Element>
-            </StyledText>
-        </TextObject>
-        <Bounds X="144" Y="1440" Width="3600" Height="432" />
-    </ObjectInfo>
-    <ObjectInfo>
-        <TextObject>
-            <n>AdditionalInfo</n>
-            <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
-            <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
-            <LinkedObjectName />
-            <Rotation>Rotation0</Rotation>
-            <IsMirrored>False</IsMirrored>
-            <IsVariable>False</IsVariable>
-            <GroupID>-1</GroupID>
-            <IsOutlined>False</IsOutlined>
-            <HorizontalAlignment>Left</HorizontalAlignment>
-            <VerticalAlignment>Top</VerticalAlignment>
-            <TextFitMode>ShrinkToFit</TextFitMode>
-            <UseFullFontHeight>True</UseFullFontHeight>
-            <Verticalized>False</Verticalized>
-            <StyledText>
-                <Element>
-                    <String xml:space="preserve">${escapeXml(additionalInfo)}</String>
-                    <Attributes>
-                        <Font Family="Arial" Size="7" Bold="False" Italic="False" Underline="False" Strikeout="False" />
-                        <ForeColor Alpha="255" Red="0" Green="0" Blue="0" HueScale="100" />
-                    </Attributes>
-                </Element>
-            </StyledText>
-        </TextObject>
-        <Bounds X="144" Y="1872" Width="3600" Height="1224" />
-    </ObjectInfo>
-    <ObjectInfo>
-        <BarcodeObject>
-            <n>RxBarcode</n>
-            <ForeColor Alpha="255" Red="0" Green="0" Blue="0" />
-            <BackColor Alpha="0" Red="255" Green="255" Blue="255" />
-            <LinkedObjectName />
-            <Rotation>Rotation0</Rotation>
-            <IsMirrored>False</IsMirrored>
-            <IsVariable>False</IsVariable>
-            <GroupID>-1</GroupID>
-            <IsOutlined>False</IsOutlined>
-            <Text>${escapeXml(barcodeText)}</Text>
-            <Type>Code128Auto</Type>
-            <ShowText>True</ShowText>
-            <CheckSum>False</CheckSum>
-            <TextPosition>Bottom</TextPosition>
-            <TextFont Family="Arial" Size="8" Bold="False" Italic="False" Underline="False" Strikeout="False" />
-            <CheckSumFont Family="Arial" Size="8" Bold="False" Italic="False" Underline="False" Strikeout="False" />
-            <TextColor Alpha="255" Red="0" Green="0" Blue="0" HueScale="100" />
-            <CheckSumColor Alpha="255" Red="0" Green="0" Blue="0" HueScale="100" />
-            <BarHeight>576</BarHeight>
-            <BarWidth>2</BarWidth>
-        </BarcodeObject>
-        <Bounds X="3888" Y="1440" Width="1584" Height="720" />
-    </ObjectInfo>
-</DieCutLabel>`;
-}
-
-// Initialize Dymo Label Framework
-let dymoLabelFramework = null;
-
-// Initialize Dymo when page loads
-async function initializeDymo() {
-    try {
-        // Check if Dymo Label Framework is available
-        if (typeof dymo !== 'undefined') {
-            dymoLabelFramework = dymo.label.framework;
-            console.log('Dymo Label Framework initialized');
-            return true;
-        } else {
-            console.warn('Dymo Label Framework not found - will fallback to download');
-            return false;
-        }
-    } catch (error) {
-        console.error('Error initializing Dymo:', error);
-        return false;
-    }
-}
-
-// Check for available Dymo printers
-async function getDymoPrinters() {
-    try {
-        if (!dymoLabelFramework) return [];
-        const printers = dymoLabelFramework.getPrinters();
-        return printers.filter(printer => printer.printerType === "LabelWriterPrinter");
-    } catch (error) {
-        console.error('Error getting Dymo printers:', error);
-        return [];
-    }
-}
-
-// Update printer status display
-async function updatePrinterStatus() {
-    const statusDiv = document.getElementById('dymoStatus');
-    const printerInfo = document.getElementById('printerInfo');
-    
-    if (!statusDiv || !printerInfo) return; // Elements don't exist on this page
-    
-    try {
-        const printers = await getDymoPrinters();
-        if (printers.length > 0) {
-            statusDiv.style.display = 'block';
-            printerInfo.innerHTML = `
-                <p style="color: green;"><strong>✓ Dymo printer detected:</strong> ${printers[0].name}</p>
-                <p style="font-size: 0.9em; color: #666;">Labels will print directly to this printer</p>
-            `;
-        } else {
-            statusDiv.style.display = 'block';
-            printerInfo.innerHTML = `
-                <p style="color: orange;"><strong>⚠ No Dymo printer detected</strong></p>
-                <p style="font-size: 0.9em; color: #666;">Labels will be downloaded as .label files. Please ensure Dymo Label software is running and printer is connected.</p>
-            `;
-        }
-    } catch (error) {
-        statusDiv.style.display = 'block';
-        printerInfo.innerHTML = `
-            <p style="color: red;"><strong>✗ Dymo SDK not available</strong></p>
-            <p style="font-size: 0.9em; color: #666;">Labels will be downloaded as .label files. Install Dymo Label software for direct printing.</p>
-        `;
-    }
-}
-
-// New Dymo-compatible label generation and printing function
 async function generateRxLabel(data, numLabels, debugMode) {
-    const barcodeText = data.rxNumber.replace(/-/g, '');
+    const { jsPDF } = window.jspdf;
     
-    // Create the label XML content
-    const labelXML = generateDymoLabelXML(data, barcodeText);
+    const labelWidth = 4 * 72;
+    const labelHeight = 2.25 * 72;
     
-    // Try to print directly with Dymo, otherwise download
+    const doc = new jsPDF({
+        orientation: 'landscape',
+        unit: 'pt',
+        format: [labelWidth, labelHeight]
+    });
+
+    const barcodeImg = await generateBarcode(data.rxNumber);
+
+    for (let i = 0; i < numLabels; i++) {
+        if (i > 0) {
+            doc.addPage([labelWidth, labelHeight], 'landscape');
+        }
+
+        let currentY = 15;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.text(data.pharmacyName, labelWidth / 2, currentY, { align: 'center' });
+        currentY += 10;
+        doc.setFontSize(8);
+        doc.text(data.pharmacyAddress, labelWidth / 2, currentY, { align: 'center' });
+        currentY += 15;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.text(`Patient: ${data.patient.firstName} ${data.patient.lastName}`, 10, currentY);
+        doc.text(`DOB: ${data.patient.dateOfBirth}`, labelWidth - 80, currentY);
+        currentY += 12;
+
+        doc.setFontSize(8);
+        const addressText = doc.splitTextToSize(`Address: ${data.patient.address}`, labelWidth - 100);
+        doc.text(addressText, 10, currentY);
+        doc.text(`Phone: ${data.patient.phone}`, labelWidth - 80, currentY);
+        currentY += 15;
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        const drugText = doc.splitTextToSize(data.drugName, labelWidth - 90);
+        doc.text(drugText, 10, currentY);
+        
+        const rxLabel = data.isControlled ? 'CRX#:' : 'RX#:';
+        const rxText = `${rxLabel} ${data.rxNumber}`;
+        const rxWidth = doc.getTextWidth(rxText);
+        doc.text(rxText, labelWidth - rxWidth - 10, currentY);
+        currentY += 15;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        const directions = doc.splitTextToSize(data.directions, labelWidth - 90);
+        doc.text(directions, 10, currentY);
+        
+        const barcodeWidth = 70;
+        const barcodeHeight = 20;
+        const barcodeX = labelWidth - barcodeWidth - 10;
+        const barcodeY = currentY - 10;
+        doc.addImage(barcodeImg, 'PNG', barcodeX, barcodeY, barcodeWidth, barcodeHeight);
+        
+        currentY += (directions.length * 10) + 10;
+
+        doc.setFontSize(7);
+        doc.text(`Mfr: ${data.manufacturer}`, 10, currentY);
+        currentY += 10;
+        
+        doc.text(`NDC: ${data.ndc}`, 10, currentY);
+        currentY += 10;
+
+        doc.text(`Prescriber: ${data.prescriber}`, 10, currentY);
+        
+        doc.text(`QTY: ${data.quantity}`, labelWidth - 70, currentY - 20);
+        doc.text(`Days: ${data.daysSupply}`, labelWidth - 70, currentY - 10);
+        doc.text(`Refills: ${data.refills}`, labelWidth - 70, currentY);
+        
+        currentY += 10;
+        doc.text(`Filled: ${data.date}`, 10, currentY);
+    }
+
     if (debugMode) {
-        // Debug mode - download the file
-        downloadLabelFile(labelXML, `rxlabel_${data.rxNumber}_${data.patient.lastName}.label`);
+        doc.save(`rxlabel_${data.rxNumber}_${data.patient.lastName}.pdf`);
     } else {
-        // Try to print directly
-        const printSuccess = await printWithDymo(labelXML, numLabels);
-        if (!printSuccess) {
-            // Fallback to download if printing fails
-            console.log('Printing failed, downloading label file instead');
-            downloadLabelFile(labelXML, `rxlabel_${data.rxNumber}_${data.patient.lastName}.label`);
-        }
+        doc.autoPrint();
+        window.open(doc.output('bloburl'), '_blank');
     }
-}
-
-// Print directly using Dymo Label Framework
-async function printWithDymo(labelXML, numLabels) {
-    try {
-        // Initialize Dymo if not already done
-        if (!dymoLabelFramework) {
-            const initialized = await initializeDymo();
-            if (!initialized) return false;
-        }
-
-        // Get available printers
-        const printers = await getDymoPrinters();
-        if (printers.length === 0) {
-            alert('No Dymo printers found. Please ensure your Dymo printer is connected and the Dymo Label software is running.');
-            return false;
-        }
-
-        // Use the first available printer
-        const printerName = printers[0].name;
-        console.log(`Printing to: ${printerName}`);
-
-        // Print the specified number of labels
-        for (let i = 0; i < numLabels; i++) {
-            dymoLabelFramework.printLabel(printerName, '', labelXML, '');
-        }
-
-        console.log(`Successfully printed ${numLabels} labels to ${printerName}`);
-        return true;
-
-    } catch (error) {
-        console.error('Error printing with Dymo:', error);
-        alert('Error printing labels: ' + error.message);
-        return false;
-    }
-}
-
-// Fallback function to download label file
-function downloadLabelFile(labelXML, filename) {
-    const blob = new Blob([labelXML], { type: 'text/xml' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.style.display = 'none';
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
 }
 
 function resetForm() {

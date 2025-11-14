@@ -90,7 +90,6 @@
             <div class="section">
                 <a href="inventory.html" class="secondary-btn" style="margin-bottom: 20px;">← Back to Inventory</a>
                 
-                <!-- Count Summary -->
                 <div class="count-summary">
                     <h3>Count Summary</h3>
                     <div class="summary-grid">
@@ -113,7 +112,6 @@
                     </div>
                 </div>
 
-                <!-- Filter Options -->
                 <div class="form-row" style="margin-bottom: 20px;">
                     <div class="form-group">
                         <label for="shelf-filter">Filter by Shelf</label>
@@ -129,12 +127,10 @@
                     </div>
                 </div>
 
-                <!-- Count Items -->
                 <div id="count-items-container">
                     <div class="loading">Loading items to count...</div>
                 </div>
 
-                <!-- Action Buttons -->
                 <div style="text-align: center; margin-top: 30px;">
                     <button class="generate-btn" onclick="saveAllCounts()">Save All Counts</button>
                     <button class="secondary-btn" onclick="resetCounts()">Reset Counts</button>
@@ -159,7 +155,7 @@
 
         async function loadCycleCountData() {
             try {
-                allItems = await inventoryDB.getAllInventory(100); // Get more items for counting
+                allItems = await inventoryDB.getAllInventory(100); 
                 filteredItems = [...allItems];
                 initializeCountData();
                 displayCountItems();
@@ -231,7 +227,7 @@
             countData[itemId].discrepancy = count !== null ? count - systemCount : 0;
             
             updateSummary();
-            displayCountItems(); // Refresh display to show discrepancy status
+            displayCountItems(); 
         }
 
         function markComplete(itemId) {
@@ -293,7 +289,6 @@
                             });
                             updatedCount++;
 
-                            // Track discrepancies
                             if (Math.abs(countInfo.discrepancy) > 0) {
                                 const item = allItems.find(i => i.id === itemId);
                                 discrepancyReport.push({
@@ -309,7 +304,6 @@
 
                     alert(`Cycle count complete! Updated ${updatedCount} items.${discrepancyReport.length > 0 ? ` Found ${discrepancyReport.length} discrepancies.` : ''}`);
                     
-                    // Redirect back to inventory
                     window.location.href = 'inventory.html';
 
                 } catch (error) {

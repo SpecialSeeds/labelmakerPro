@@ -244,7 +244,7 @@
                 </div>
 
                 <div class="export-option">
-                    <h3>Drug Substitutions</h3>
+                    <h3>💊 Drug Substitutions</h3>
                     <p>Export current drug substitution mappings and conversion ratios</p>
                     
                     <div class="export-controls">
@@ -269,6 +269,7 @@
                     </div>
                 </div>
 
+                <!-- Export Preview -->
                 <div id="export-preview" class="export-preview" style="display: none;">
                     <h3>Export Preview</h3>
                     <div id="export-summary" class="export-summary"></div>
@@ -286,6 +287,7 @@
     <script src="inventory-script.js"></script>
 
     <script>
+        // Initialize date inputs
         window.addEventListener('DOMContentLoaded', () => {
             const today = new Date().toISOString().split('T')[0];
             const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -294,6 +296,7 @@
             document.getElementById('reports-end-date').value = today;
         });
 
+        // Export Functions
         async function exportInventory() {
             const format = document.getElementById('inventory-format').value;
             const lowStockOnly = document.getElementById('inventory-low-stock').checked;
@@ -302,7 +305,8 @@
             showLoading();
             
             try {
-                let data = await inventoryDB.getAllInventory(1000);
+                // Get all inventory including expired for export purposes
+                let data = await inventoryDB.getAllInventoryIncludingExpired(1000);
                 
                 // Apply filters
                 if (lowStockOnly) {
@@ -321,6 +325,7 @@
                     'Amount': item.amount || 0,
                     'Par Level': item.parLevel || 0,
                     'Expiration Date': formatDate(item.expiration),
+                    'Status': getItemStatus(item.expiration, item.amount, item.parLevel),
                     'Strength': item.strength || '',
                     'Dosage Form': item.dosageForm || '',
                     'Lot Number': item.lot || '',
@@ -335,6 +340,20 @@
                 alert('Error exporting inventory: ' + error.message);
             } finally {
                 hideLoading();
+            }
+        }
+
+        // Helper function to determine item status
+        function getItemStatus(expiration, amount, parLevel) {
+            const currentDate = new Date().toISOString().split('T')[0];
+            if (expiration <= currentDate) {
+                return 'EXPIRED';
+            } else if (amount === 0) {
+                return 'OUT OF STOCK';
+            } else if (amount < parLevel) {
+                return 'LOW STOCK';
+            } else {
+                return 'IN STOCK';
             }
         }
 
@@ -578,6 +597,7 @@
                     `;
                 });
             }
+            // Add other preview types as needed...
 
             tableHTML += '</tbody></table>';
             contentDiv.innerHTML = tableHTML;

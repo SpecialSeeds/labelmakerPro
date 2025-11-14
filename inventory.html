@@ -168,19 +168,16 @@
             <div class="inventory-buttons">
                 <a href="add-stock.html" class="inventory-btn">Add stock</a>
                 <a href="cycle-count.html" class="inventory-btn">Cycle count</a>
-                <a href="substitutions.html" class="inventory-btn">Substitutions</a>
                 <a href="report.html" class="inventory-btn">Report (discrepancy or expired or recall)</a>
             </div>
 
-            <!-- Full Width Buttons -->
             <div style="display: grid; grid-template-columns: 1fr; gap: 15px; margin-bottom: 30px;">
                 <button class="inventory-btn" onclick="refreshInventory()">inventory</button>
                 <a href="export.html" class="inventory-btn">export</a>
             </div>
 
-            <!-- Expired/Recalled Items Table -->
             <div class="inventory-section">
-                <h3>EXPIRED/RECALLED (table)</h3>
+                <h3>EXPIRED/RECALLED</h3>
                 <div id="expired-loading" class="loading">Loading expired items...</div>
                 <div id="expired-content" style="display: none;">
                     <table class="inventory-table">
@@ -195,6 +192,7 @@
                             </tr>
                         </thead>
                         <tbody id="expired-table-body">
+                            <!-- Data will be populated here -->
                         </tbody>
                     </table>
                     <div class="see-more">
@@ -207,7 +205,11 @@
             </div>
 
             <div class="inventory-section">
-                <h3>Inventory (table)</h3>
+                <h3>Inventory</h3>
+                <p style="color: #718096; font-size: 14px; margin-bottom: 15px;">
+                    <strong>Note:</strong> This table shows only active, non-expired inventory. 
+                    Expired items are automatically moved to the "Expired/Recalled" section above.
+                </p>
                 <div id="inventory-loading" class="loading">Loading inventory...</div>
                 <div id="inventory-content" style="display: none;">
                     <table class="inventory-table">

@@ -152,18 +152,20 @@
             <div class="section">
                 <a href="inventory.html" class="secondary-btn" style="margin-bottom: 20px;">← Back to Inventory</a>
                 
+                <h2>What type of stock are you adding?</h2>
                 
                 <!-- Option Selection -->
                 <div class="stock-option" onclick="selectStockType('formulary')">
-                    <h3>Existing Drug</h3>
-                    <p>adding stock for a drug that's already in our formulary</p>
+                    <h3>📋 Existing Drug (On Formulary)</h3>
+                    <p>Adding stock for a drug that's already in our formulary but may be out of stock</p>
                 </div>
                 
                 <div class="stock-option" onclick="selectStockType('new-drug')">
-                    <h3>New Drug</h3>
-                    <p>adding a new drug that we've never carried before</p>
+                    <h3>🆕 New Drug (Not on Formulary)</h3>
+                    <p>Adding a completely new drug that we've never carried before</p>
                 </div>
 
+                <!-- Formulary Drug Section -->
                 <div id="formulary-section" class="formulary-section">
                     <h3>Add Stock - Existing Drug</h3>
                     
@@ -202,6 +204,7 @@
                     </div>
                 </div>
 
+                <!-- New Drug Section -->
                 <div id="new-drug-section" class="new-drug-section">
                     <h3>Add New Drug to Formulary</h3>
                     <p><em>This will create a new formulary entry and add initial stock.</em></p>
@@ -300,12 +303,28 @@
 
         // Load the page
         window.addEventListener('DOMContentLoaded', async () => {
+            console.log('Loading add-stock page...');
+            
+            // Wait for inventory database to initialize
+            let attempts = 0;
+            while (!inventoryDB && attempts < 50) {
+                console.log('Waiting for inventoryDB to initialize...', attempts);
+                await new Promise(resolve => setTimeout(resolve, 100));
+                attempts++;
+            }
+            
             if (inventoryDB) {
+                console.log('InventoryDB ready, loading formulary drugs...');
                 await loadFormularyDrugs();
+            } else {
+                console.error('InventoryDB failed to initialize after 5 seconds');
+                alert('Database connection failed. Please refresh the page.');
             }
         });
 
+        // Select stock type
         function selectStockType(type) {
+            // Reset selections
             document.querySelectorAll('.stock-option').forEach(option => {
                 option.classList.remove('selected');
             });
@@ -313,6 +332,7 @@
                 section.style.display = 'none';
             });
 
+            // Show selected type
             event.target.closest('.stock-option').classList.add('selected');
             
             if (type === 'formulary') {
@@ -324,12 +344,28 @@
             }
         }
 
+        // Load all formulary drugs
         async function loadFormularyDrugs() {
             try {
+                console.log('Loading formulary drugs...');
+                if (!inventoryDB) {
+                    throw new Error('InventoryDB not initialized');
+                }
+                
                 allFormularyDrugs = await inventoryDB.getAllInventory(200); // Get all drugs
-                console.log(`Loaded ${allFormularyDrugs.length} formulary drugs`);
+                console.log(`Loaded ${allFormularyDrugs.length} formulary drugs:`, allFormularyDrugs);
+                
+                // Show some debug info about what drugs we have
+                if (allFormularyDrugs.length > 0) {
+                    console.log('Sample drugs:', allFormularyDrugs.slice(0, 3).map(d => ({ 
+                        brand: d.brandName, 
+                        generic: d.genericName, 
+                        ndc: d.ndc 
+                    })));
+                }
             } catch (error) {
                 console.error('Error loading formulary drugs:', error);
+                alert('Failed to load formulary drugs. Please refresh the page.');
             }
         }
 
@@ -338,19 +374,34 @@
             const query = this.value.toLowerCase().trim();
             const resultsDiv = document.getElementById('search-results');
             
+            console.log('Searching for:', query);
+            
             if (query.length < 2) {
                 resultsDiv.style.display = 'none';
                 return;
             }
 
+            if (!allFormularyDrugs || allFormularyDrugs.length === 0) {
+                resultsDiv.innerHTML = '<div class="search-result-item">No formulary drugs loaded yet. Please wait...</div>';
+                resultsDiv.style.display = 'block';
+                return;
+            }
+
             const matches = allFormularyDrugs.filter(drug => {
-                return (
-                    (drug.brandName && drug.brandName.toLowerCase().includes(query)) ||
-                    (drug.genericName && drug.genericName.toLowerCase().includes(query)) ||
-                    (drug.ndc && drug.ndc.includes(query))
-                );
+                const brandMatch = drug.brandName && drug.brandName.toLowerCase().includes(query);
+                const genericMatch = drug.genericName && drug.genericName.toLowerCase().includes(query);
+                const ndcMatch = drug.ndc && drug.ndc.toLowerCase().includes(query);
+                
+                const isMatch = brandMatch || genericMatch || ndcMatch;
+                
+                if (isMatch) {
+                    console.log('Found match:', { brand: drug.brandName, generic: drug.genericName, ndc: drug.ndc });
+                }
+                
+                return isMatch;
             });
 
+            console.log(`Found ${matches.length} matches out of ${allFormularyDrugs.length} total drugs`);
             displaySearchResults(matches);
         });
 
@@ -428,6 +479,7 @@
                     updatedAt: new Date().toISOString()
                 });
 
+                // Log the transaction
                 await db.collection('inventory_transactions').add({
                     drugId: selectedDrug.id,
                     brandName: selectedDrug.brandName,

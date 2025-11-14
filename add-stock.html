@@ -152,62 +152,62 @@
             <div class="section">
                 <a href="inventory.html" class="secondary-btn" style="margin-bottom: 20px;">← Back to Inventory</a>
                 
-                <h2>What type of stock are you adding?</h2>
+                <h2>Select stock addition type</h2>
                 
                 <!-- Option Selection -->
                 <div class="stock-option" onclick="selectStockType('formulary')">
-                    <h3>📋 Existing Drug (On Formulary)</h3>
-                    <p>Adding stock for a drug that's already in our formulary but may be out of stock</p>
+                    <h3>Existing Drug on Formulary</h3>
+                    <p>Add inventory for drugs already in the system</p>
                 </div>
                 
                 <div class="stock-option" onclick="selectStockType('new-drug')">
-                    <h3>🆕 New Drug (Not on Formulary)</h3>
-                    <p>Adding a completely new drug that we've never carried before</p>
+                    <h3>New Drug Entry</h3>
+                    <p>Create formulary entry for new drugs</p>
                 </div>
 
                 <!-- Formulary Drug Section -->
                 <div id="formulary-section" class="formulary-section">
-                    <h3>Add Stock - Existing Drug</h3>
+                    <h3>Add Inventory - Existing Drug</h3>
                     
                     <div class="drug-search">
-                        <input type="text" id="drug-search" placeholder="Search for drug by brand name, generic name, or NDC...">
+                        <input type="text" id="drug-search" placeholder="Search by brand name, generic name, or NDC">
                         <div id="search-results" class="search-results"></div>
                     </div>
 
                     <div id="selected-drug-info" class="selected-drug-info">
-                        <h4>Selected Drug:</h4>
+                        <h4>Drug Information</h4>
                         <div id="drug-details"></div>
                         
                         <div class="quantity-input-group">
-                            <label><strong>Add Quantity:</strong></label>
+                            <label><strong>Quantity to Add:</strong></label>
                             <input type="number" id="add-quantity" placeholder="0" min="0" step="1">
                             <span>units</span>
                             <button type="button" class="force-cycle-btn" onclick="forceCycleCount()">
-                                🔄 Force Cycle Count Instead
+                                Use Cycle Count
                             </button>
                         </div>
 
                         <div class="form-row">
                             <div class="form-group">
-                                <label for="new-lot">New Lot Number</label>
-                                <input type="text" id="new-lot" placeholder="Optional - if different from existing">
+                                <label for="new-lot">Lot Number</label>
+                                <input type="text" id="new-lot" placeholder="Leave blank to use existing">
                             </div>
                             <div class="form-group">
-                                <label for="new-expiration">New Expiration Date</label>
-                                <input type="date" id="new-expiration" placeholder="Optional - if different from existing">
+                                <label for="new-expiration">Expiration Date</label>
+                                <input type="date" id="new-expiration" placeholder="Leave blank to use existing">
                             </div>
                         </div>
 
                         <button type="button" class="generate-btn" onclick="addStockToFormulary()" id="add-stock-btn" disabled>
-                            Add Stock
+                            Add Inventory
                         </button>
                     </div>
                 </div>
 
                 <!-- New Drug Section -->
                 <div id="new-drug-section" class="new-drug-section">
-                    <h3>Add New Drug to Formulary</h3>
-                    <p><em>This will create a new formulary entry and add initial stock.</em></p>
+                    <h3>New Drug Entry</h3>
+                    <p>Add new drug to formulary with initial inventory.</p>
                     
                     <form id="new-drug-form">
                         <div class="form-row">
@@ -286,7 +286,7 @@
                             <textarea id="new-notes" rows="3" placeholder="Any special storage instructions or notes..."></textarea>
                         </div>
 
-                        <button type="submit" class="generate-btn">Add New Drug to Formulary</button>
+                        <button type="submit" class="generate-btn">Add to Formulary</button>
                     </form>
                 </div>
             </div>

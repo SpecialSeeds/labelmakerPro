@@ -90,6 +90,7 @@
             <div class="section">
                 <a href="inventory.html" class="secondary-btn" style="margin-bottom: 20px;">← Back to Inventory</a>
                 
+                <!-- Count Summary -->
                 <div class="count-summary">
                     <h3>Count Summary</h3>
                     <div class="summary-grid">
@@ -112,6 +113,7 @@
                     </div>
                 </div>
 
+                <!-- Filter Options -->
                 <div class="form-row" style="margin-bottom: 20px;">
                     <div class="form-group">
                         <label for="shelf-filter">Filter by Shelf</label>
@@ -127,10 +129,12 @@
                     </div>
                 </div>
 
+                <!-- Count Items -->
                 <div id="count-items-container">
                     <div class="loading">Loading items to count...</div>
                 </div>
 
+                <!-- Action Buttons -->
                 <div style="text-align: center; margin-top: 30px;">
                     <button class="generate-btn" onclick="saveAllCounts()">Save All Counts</button>
                     <button class="secondary-btn" onclick="resetCounts()">Reset Counts</button>
@@ -149,14 +153,42 @@
         let filteredItems = [];
         let countData = {};
 
+        // Load cycle count data
         window.addEventListener('DOMContentLoaded', async () => {
             await loadCycleCountData();
         });
 
+        // Load cycle count data and handle pre-selected drug
         async function loadCycleCountData() {
             try {
-                allItems = await inventoryDB.getAllInventory(100); 
+                // Get active (non-expired) inventory items for counting
+                allItems = await inventoryDB.getAllInventory(100); // Get more items for counting
                 filteredItems = [...allItems];
+                
+                // Check if a specific drug was pre-selected via URL parameter
+                const urlParams = new URLSearchParams(window.location.search);
+                const preSelectedDrugId = urlParams.get('drug');
+                
+                if (preSelectedDrugId) {
+                    // Filter to show only the pre-selected drug
+                    const preSelectedDrug = allItems.find(item => item.id === preSelectedDrugId);
+                    if (preSelectedDrug) {
+                        filteredItems = [preSelectedDrug];
+                        
+                        // Show notification that this is a forced cycle count
+                        const notification = document.createElement('div');
+                        notification.innerHTML = `
+                            <div style="background: #D6F5D6; border: 1px solid #68D391; border-radius: 8px; padding: 15px; margin-bottom: 20px;">
+                                <h4 style="margin: 0 0 8px 0; color: #22543D;">🔄 Forced Cycle Count</h4>
+                                <p style="margin: 0; color: #22543D;">
+                                    You are performing a cycle count for <strong>${preSelectedDrug.brandName}</strong> to correct inventory discrepancies.
+                                </p>
+                            </div>
+                        `;
+                        document.querySelector('.section').insertBefore(notification, document.querySelector('.section').firstChild);
+                    }
+                }
+                
                 initializeCountData();
                 displayCountItems();
                 updateSummary();
@@ -227,7 +259,7 @@
             countData[itemId].discrepancy = count !== null ? count - systemCount : 0;
             
             updateSummary();
-            displayCountItems(); 
+            displayCountItems(); // Refresh display to show discrepancy status
         }
 
         function markComplete(itemId) {
@@ -283,12 +315,14 @@
 
                     for (const [itemId, countInfo] of Object.entries(countData)) {
                         if (countInfo.counted && countInfo.actualCount !== null) {
+                            // Update inventory with actual count
                             await inventoryDB.updateInventoryItem(itemId, {
                                 amount: countInfo.actualCount,
                                 lastCounted: new Date().toISOString()
                             });
                             updatedCount++;
 
+                            // Track discrepancies
                             if (Math.abs(countInfo.discrepancy) > 0) {
                                 const item = allItems.find(i => i.id === itemId);
                                 discrepancyReport.push({
@@ -304,6 +338,7 @@
 
                     alert(`Cycle count complete! Updated ${updatedCount} items.${discrepancyReport.length > 0 ? ` Found ${discrepancyReport.length} discrepancies.` : ''}`);
                     
+                    // Redirect back to inventory
                     window.location.href = 'inventory.html';
 
                 } catch (error) {

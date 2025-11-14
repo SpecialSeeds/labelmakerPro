@@ -5,6 +5,131 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add Stock - Inventory Management</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        .stock-option {
+            background: #F7FAFC;
+            border: 2px solid #E9D8FD;
+            border-radius: 12px;
+            padding: 32px;
+            margin-bottom: 24px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .stock-option:hover {
+            border-color: #9F7AEA;
+            background: #FAF5FF;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(159, 122, 234, 0.15);
+        }
+
+        .stock-option.selected {
+            border-color: #6B46C1;
+            background: #EDF2F7;
+        }
+
+        .stock-option h3 {
+            color: #553C9A;
+            margin-bottom: 12px;
+            font-size: 20px;
+        }
+
+        .stock-option p {
+            color: #6B46C1;
+            margin: 0;
+            font-size: 15px;
+        }
+
+        .formulary-section, .new-drug-section {
+            display: none;
+            background: white;
+            border-radius: 12px;
+            padding: 32px;
+            margin-top: 24px;
+            border: 1px solid #E9D8FD;
+        }
+
+        .drug-search {
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .drug-search input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #E9D8FD;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .search-results {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #E9D8FD;
+            border-radius: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+        }
+
+        .search-result-item {
+            padding: 12px;
+            border-bottom: 1px solid #F1F5F9;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .search-result-item:hover {
+            background: #FAF5FF;
+        }
+
+        .search-result-item:last-child {
+            border-bottom: none;
+        }
+
+        .selected-drug-info {
+            background: #EDF2F7;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .quantity-input-group {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin: 20px 0;
+        }
+
+        .quantity-input-group input {
+            width: 120px;
+            padding: 10px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .force-cycle-btn {
+            background: #805AD5;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            margin-left: 12px;
+        }
+
+        .force-cycle-btn:hover {
+            background: #6B46C1;
+        }
+    </style>
 </head>
 <body>
     <nav class="sidebar">
@@ -15,85 +140,152 @@
             <li><a href="index.html">home</a></li>
             <li><a href="medidose.html">medidose labels</a></li>
             <li><a href="rxlabel.html">rx labels</a></li>
-            <li><a href="inventory.html" class="active">inventory</a></li>
+            <li><a href="inventory.html">inventory</a></li>
             <li><a href="settings.html">settings</a></li>
         </ul>
     </nav>
 
     <div class="main-content">
         <div class="container">
-            <h1 id="page-title">Add Stock</h1>
+            <h1>Add Stock</h1>
             
             <div class="section">
                 <a href="inventory.html" class="secondary-btn" style="margin-bottom: 20px;">← Back to Inventory</a>
                 
-                <form id="stock-form">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="brandName">Brand Name</label>
-                            <input type="text" id="brandName" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="genericName">Generic Name</label>
-                            <input type="text" id="genericName" required>
-                        </div>
+                
+                <!-- Option Selection -->
+                <div class="stock-option" onclick="selectStockType('formulary')">
+                    <h3>Existing Drug</h3>
+                    <p>adding stock for a drug that's already in our formulary</p>
+                </div>
+                
+                <div class="stock-option" onclick="selectStockType('new-drug')">
+                    <h3>New Drug</h3>
+                    <p>adding a new drug that we've never carried before</p>
+                </div>
+
+                <div id="formulary-section" class="formulary-section">
+                    <h3>Add Stock - Existing Drug</h3>
+                    
+                    <div class="drug-search">
+                        <input type="text" id="drug-search" placeholder="Search for drug by brand name, generic name, or NDC...">
+                        <div id="search-results" class="search-results"></div>
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="shelfNumber">Shelf Number</label>
-                            <select id="shelfNumber" required>
-                                <option value="">Select shelf</option>
-                                <option value="1">Shelf 1</option>
-                                <option value="2">Shelf 2</option>
-                            </select>
+                    <div id="selected-drug-info" class="selected-drug-info">
+                        <h4>Selected Drug:</h4>
+                        <div id="drug-details"></div>
+                        
+                        <div class="quantity-input-group">
+                            <label><strong>Add Quantity:</strong></label>
+                            <input type="number" id="add-quantity" placeholder="0" min="0" step="1">
+                            <span>units</span>
+                            <button type="button" class="force-cycle-btn" onclick="forceCycleCount()">
+                                🔄 Force Cycle Count Instead
+                            </button>
                         </div>
-                        <div class="form-group">
-                            <label for="ndc">NDC</label>
-                            <input type="text" id="ndc" placeholder="XXXXX-XXXX-XX" required>
-                        </div>
-                    </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="amount">Current Amount</label>
-                            <input type="number" id="amount" min="0" required>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="new-lot">New Lot Number</label>
+                                <input type="text" id="new-lot" placeholder="Optional - if different from existing">
+                            </div>
+                            <div class="form-group">
+                                <label for="new-expiration">New Expiration Date</label>
+                                <input type="date" id="new-expiration" placeholder="Optional - if different from existing">
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label for="parLevel">Par Level</label>
-                            <input type="number" id="parLevel" min="0" required>
-                        </div>
-                    </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="expiration">Expiration Date</label>
-                            <input type="date" id="expiration" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="lot">Lot Number</label>
-                            <input type="text" id="lot">
-                        </div>
+                        <button type="button" class="generate-btn" onclick="addStockToFormulary()" id="add-stock-btn" disabled>
+                            Add Stock
+                        </button>
                     </div>
+                </div>
 
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="strength">Strength</label>
-                            <input type="text" id="strength" placeholder="e.g., 10mg">
+                <div id="new-drug-section" class="new-drug-section">
+                    <h3>Add New Drug to Formulary</h3>
+                    <p><em>This will create a new formulary entry and add initial stock.</em></p>
+                    
+                    <form id="new-drug-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="new-brand-name">Brand Name *</label>
+                                <input type="text" id="new-brand-name" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="new-generic-name">Generic Name *</label>
+                                <input type="text" id="new-generic-name" required>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label for="dosageForm">Dosage Form</label>
-                            <input type="text" id="dosageForm" placeholder="e.g., tablets, capsules">
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="new-ndc">NDC *</label>
+                                <input type="text" id="new-ndc" placeholder="XXXXX-XXXX-XX" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="new-strength">Strength *</label>
+                                <input type="text" id="new-strength" placeholder="e.g. 200mg" required>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="form-group">
-                        <label for="notes">Notes</label>
-                        <textarea id="notes" rows="3" placeholder="Additional notes..."></textarea>
-                    </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="new-dosage-form">Dosage Form *</label>
+                                <select id="new-dosage-form" required>
+                                    <option value="">Select dosage form</option>
+                                    <option value="tablets">Tablets</option>
+                                    <option value="capsules">Capsules</option>
+                                    <option value="liquid">Liquid</option>
+                                    <option value="injection">Injection</option>
+                                    <option value="cream">Cream</option>
+                                    <option value="ointment">Ointment</option>
+                                    <option value="drops">Drops</option>
+                                    <option value="inhaler">Inhaler</option>
+                                    <option value="patches">Patches</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="new-shelf">Shelf Number *</label>
+                                <select id="new-shelf" required>
+                                    <option value="">Select shelf</option>
+                                    <option value="1">Shelf 1</option>
+                                    <option value="2">Shelf 2</option>
+                                </select>
+                            </div>
+                        </div>
 
-                    <button type="submit" class="generate-btn" id="submit-btn">Add to Inventory</button>
-                </form>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="initial-amount">Initial Stock Quantity *</label>
+                                <input type="number" id="initial-amount" min="0" step="1" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="new-par-level">Par Level (Reorder Point) *</label>
+                                <input type="number" id="new-par-level" min="0" step="1" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="initial-lot">Lot Number *</label>
+                                <input type="text" id="initial-lot" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="initial-expiration">Expiration Date *</label>
+                                <input type="date" id="initial-expiration" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="new-notes">Notes (Optional)</label>
+                            <textarea id="new-notes" rows="3" placeholder="Any special storage instructions or notes..."></textarea>
+                        </div>
+
+                        <button type="submit" class="generate-btn">Add New Drug to Formulary</button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -102,94 +294,227 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
     <script src="firebase-data.js"></script>
     <script src="inventory-script.js"></script>
-
     <script>
-        let isEditMode = false;
-        let editItemId = null;
+        let selectedDrug = null;
+        let allFormularyDrugs = [];
 
+        // Load the page
         window.addEventListener('DOMContentLoaded', async () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const editId = urlParams.get('edit');
-            
-            if (editId) {
-                isEditMode = true;
-                editItemId = editId;
-                document.getElementById('page-title').textContent = 'Edit Stock';
-                document.getElementById('submit-btn').textContent = 'Update Inventory';
-                
-                await loadItemForEdit(editId);
+            if (inventoryDB) {
+                await loadFormularyDrugs();
             }
         });
 
-        async function loadItemForEdit(itemId) {
-            try {
-                const doc = await inventoryDB.inventoryRef.doc(itemId).get();
-                if (doc.exists) {
-                    const data = doc.data();
-                    document.getElementById('brandName').value = data.brandName || '';
-                    document.getElementById('genericName').value = data.genericName || '';
-                    document.getElementById('shelfNumber').value = data.shelfNumber || '';
-                    document.getElementById('ndc').value = data.ndc || '';
-                    document.getElementById('amount').value = data.amount || '';
-                    document.getElementById('parLevel').value = data.parLevel || '';
-                    document.getElementById('expiration').value = data.expiration || '';
-                    document.getElementById('lot').value = data.lot || '';
-                    document.getElementById('strength').value = data.strength || '';
-                    document.getElementById('dosageForm').value = data.dosageForm || '';
-                    document.getElementById('notes').value = data.notes || '';
-                } else {
-                    alert('Item not found');
-                    window.location.href = 'inventory.html';
-                }
-            } catch (error) {
-                console.error('Error loading item:', error);
-                alert('Error loading item data');
-                window.location.href = 'inventory.html';
+        function selectStockType(type) {
+            document.querySelectorAll('.stock-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            document.querySelectorAll('.formulary-section, .new-drug-section').forEach(section => {
+                section.style.display = 'none';
+            });
+
+            event.target.closest('.stock-option').classList.add('selected');
+            
+            if (type === 'formulary') {
+                document.getElementById('formulary-section').style.display = 'block';
+                document.getElementById('drug-search').focus();
+            } else if (type === 'new-drug') {
+                document.getElementById('new-drug-section').style.display = 'block';
+                document.getElementById('new-brand-name').focus();
             }
         }
 
-        document.getElementById('stock-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
+        async function loadFormularyDrugs() {
+            try {
+                allFormularyDrugs = await inventoryDB.getAllInventory(200); // Get all drugs
+                console.log(`Loaded ${allFormularyDrugs.length} formulary drugs`);
+            } catch (error) {
+                console.error('Error loading formulary drugs:', error);
+            }
+        }
 
-            const submitBtn = document.getElementById('submit-btn');
+        // Search formulary drugs
+        document.getElementById('drug-search').addEventListener('input', function() {
+            const query = this.value.toLowerCase().trim();
+            const resultsDiv = document.getElementById('search-results');
+            
+            if (query.length < 2) {
+                resultsDiv.style.display = 'none';
+                return;
+            }
+
+            const matches = allFormularyDrugs.filter(drug => {
+                return (
+                    (drug.brandName && drug.brandName.toLowerCase().includes(query)) ||
+                    (drug.genericName && drug.genericName.toLowerCase().includes(query)) ||
+                    (drug.ndc && drug.ndc.includes(query))
+                );
+            });
+
+            displaySearchResults(matches);
+        });
+
+        // Display search results
+        function displaySearchResults(drugs) {
+            const resultsDiv = document.getElementById('search-results');
+            resultsDiv.innerHTML = '';
+
+            if (drugs.length === 0) {
+                resultsDiv.innerHTML = '<div class="search-result-item">No matching drugs found</div>';
+            } else {
+                drugs.forEach(drug => {
+                    const div = document.createElement('div');
+                    div.className = 'search-result-item';
+                    div.innerHTML = `
+                        <strong>${drug.brandName}</strong> (${drug.genericName})<br>
+                        <small>NDC: ${drug.ndc} | Current Stock: ${drug.amount || 0} | Shelf: ${drug.shelfNumber}</small>
+                    `;
+                    div.onclick = () => selectDrug(drug);
+                    resultsDiv.appendChild(div);
+                });
+            }
+
+            resultsDiv.style.display = 'block';
+        }
+
+        // Select a drug from search
+        function selectDrug(drug) {
+            selectedDrug = drug;
+            document.getElementById('search-results').style.display = 'none';
+            document.getElementById('drug-search').value = `${drug.brandName} (${drug.genericName})`;
+            
+            // Show drug details
+            const detailsDiv = document.getElementById('drug-details');
+            detailsDiv.innerHTML = `
+                <p><strong>Brand:</strong> ${drug.brandName}</p>
+                <p><strong>Generic:</strong> ${drug.genericName}</p>
+                <p><strong>NDC:</strong> ${drug.ndc}</p>
+                <p><strong>Strength:</strong> ${drug.strength || 'Not specified'}</p>
+                <p><strong>Current Stock:</strong> ${drug.amount || 0} units</p>
+                <p><strong>Par Level:</strong> ${drug.parLevel || 0} units</p>
+                <p><strong>Shelf:</strong> ${drug.shelfNumber}</p>
+                <p><strong>Current Lot:</strong> ${drug.lot || 'N/A'}</p>
+                <p><strong>Current Expiration:</strong> ${drug.expiration || 'N/A'}</p>
+            `;
+            
+            document.getElementById('selected-drug-info').style.display = 'block';
+            document.getElementById('add-stock-btn').disabled = false;
+            document.getElementById('add-quantity').focus();
+        }
+
+        // Add stock to existing formulary drug
+        async function addStockToFormulary() {
+            if (!selectedDrug) {
+                alert('Please select a drug first');
+                return;
+            }
+
+            const addQuantity = parseInt(document.getElementById('add-quantity').value);
+            if (!addQuantity || addQuantity <= 0) {
+                alert('Please enter a valid quantity to add');
+                return;
+            }
+
+            const newLot = document.getElementById('new-lot').value || selectedDrug.lot;
+            const newExpiration = document.getElementById('new-expiration').value || selectedDrug.expiration;
+
+            try {
+                const newAmount = (selectedDrug.amount || 0) + addQuantity;
+                
+                await inventoryDB.updateInventoryItem(selectedDrug.id, {
+                    amount: newAmount,
+                    lot: newLot,
+                    expiration: newExpiration,
+                    updatedAt: new Date().toISOString()
+                });
+
+                await db.collection('inventory_transactions').add({
+                    drugId: selectedDrug.id,
+                    brandName: selectedDrug.brandName,
+                    transactionType: 'stock_addition',
+                    quantityAdded: addQuantity,
+                    previousAmount: selectedDrug.amount || 0,
+                    newAmount: newAmount,
+                    timestamp: new Date().toISOString(),
+                    lot: newLot,
+                    expiration: newExpiration
+                });
+
+                alert(`Successfully added ${addQuantity} units to ${selectedDrug.brandName}`);
+                window.location.href = 'inventory.html';
+                
+            } catch (error) {
+                console.error('Error adding stock:', error);
+                alert('Error adding stock: ' + error.message);
+            }
+        }
+
+        // Force cycle count for discrepancy correction
+        function forceCycleCount() {
+            if (!selectedDrug) {
+                alert('Please select a drug first');
+                return;
+            }
+            
+            // Redirect to cycle count page with this drug pre-selected
+            window.location.href = `cycle-count.html?drug=${selectedDrug.id}`;
+        }
+
+        // Handle new drug form submission
+        document.getElementById('new-drug-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const submitBtn = e.target.querySelector('button[type="submit"]');
             const originalText = submitBtn.textContent;
-            submitBtn.textContent = isEditMode ? 'Updating...' : 'Adding...';
+            submitBtn.textContent = 'Adding...';
             submitBtn.disabled = true;
 
             try {
-                const formData = {
-                    brandName: document.getElementById('brandName').value.trim(),
-                    genericName: document.getElementById('genericName').value.trim(),
-                    shelfNumber: document.getElementById('shelfNumber').value,
-                    ndc: document.getElementById('ndc').value.trim(),
-                    amount: parseInt(document.getElementById('amount').value),
-                    parLevel: parseInt(document.getElementById('parLevel').value),
-                    expiration: document.getElementById('expiration').value,
-                    lot: document.getElementById('lot').value.trim(),
-                    strength: document.getElementById('strength').value.trim(),
-                    dosageForm: document.getElementById('dosageForm').value.trim(),
-                    notes: document.getElementById('notes').value.trim()
+                const newDrug = {
+                    brandName: document.getElementById('new-brand-name').value,
+                    genericName: document.getElementById('new-generic-name').value,
+                    ndc: document.getElementById('new-ndc').value,
+                    strength: document.getElementById('new-strength').value,
+                    dosageForm: document.getElementById('new-dosage-form').value,
+                    shelfNumber: document.getElementById('new-shelf').value,
+                    amount: parseInt(document.getElementById('initial-amount').value),
+                    parLevel: parseInt(document.getElementById('new-par-level').value),
+                    lot: document.getElementById('initial-lot').value,
+                    expiration: document.getElementById('initial-expiration').value,
+                    notes: document.getElementById('new-notes').value
                 };
 
-                if (isEditMode) {
-                    await inventoryDB.updateInventoryItem(editItemId, formData);
-                    alert('Inventory item updated successfully!');
-                } else {
-                    await inventoryDB.addInventoryItem(formData);
-                    alert('Stock added successfully!');
-                    document.getElementById('stock-form').reset();
-                }
-                
-                setTimeout(() => {
-                    window.location.href = 'inventory.html';
-                }, 1000);
+                const result = await inventoryDB.addInventoryItem(newDrug);
+
+                // Log the transaction
+                await db.collection('inventory_transactions').add({
+                    drugId: result.id,
+                    brandName: newDrug.brandName,
+                    transactionType: 'new_drug_addition',
+                    quantityAdded: newDrug.amount,
+                    previousAmount: 0,
+                    newAmount: newDrug.amount,
+                    timestamp: new Date().toISOString(),
+                    lot: newDrug.lot,
+                    expiration: newDrug.expiration
+                });
+
+                alert(`Successfully added ${newDrug.brandName} to formulary with ${newDrug.amount} units`);
+                window.location.href = 'inventory.html';
 
             } catch (error) {
-                console.error('Error saving stock:', error);
-                alert('Error saving stock: ' + error.message);
+                console.error('Error adding new drug:', error);
+                alert('Error adding new drug: ' + error.message);
             } finally {
                 submitBtn.textContent = originalText;
                 submitBtn.disabled = false;
+            }
+        });
+
+        // Hide search results when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.drug-search')) {
+                document.getElementById('search-results').style.display = 'none';
             }
         });
     </script>

@@ -185,10 +185,13 @@ class SettingsManager {
 settingsManager = new SettingsManager();
 patientDB = new PatientDatabase();
 
+// Initialize inventory collections if they don't exist
 async function initializeInventoryCollections() {
     try {
+        // Check if inventory collection exists and has any documents
         const inventorySnapshot = await db.collection('inventory').limit(1).get();
         if (inventorySnapshot.empty) {
+            // Add a sample inventory item to initialize the collection
             await db.collection('inventory').add({
                 brandName: 'Sample Drug',
                 genericName: 'sample generic',
@@ -207,6 +210,7 @@ async function initializeInventoryCollections() {
             console.log('Inventory collection initialized with sample data');
         }
         
+        // Initialize other collections as needed
         const reportsSnapshot = await db.collection('reports').limit(1).get();
         const substitutionsSnapshot = await db.collection('substitutions').limit(1).get();
         const expiredRecalledSnapshot = await db.collection('expired_recalled').limit(1).get();
@@ -217,6 +221,7 @@ async function initializeInventoryCollections() {
     }
 }
 
+// Call initialization when the page loads
 if (typeof window !== 'undefined') {
     window.addEventListener('DOMContentLoaded', initializeInventoryCollections);
 }
